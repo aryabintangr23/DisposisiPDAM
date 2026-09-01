@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\DisposisiRuleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class SuratController extends Controller
@@ -108,6 +109,90 @@ class SuratController extends Controller
         $penerimaOptions = $this->penerimaOptionsUntuk($request->user());
 
         return view('surat.show', compact('surat', 'penerimaOptions'));
+    }
+
+    /**
+     * Pindahkan surat yang dipilih (checkbox) ke tempat sampah (soft delete).
+     * Dibatasi hanya untuk Staff yang membuat surat itu sendiri.
+     */
+    public function hapus(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->isStaff(), 403, 'Hanya Staff yang boleh memindahkan surat ke tempat sampah.');
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:surat,id'],
+        ]);
+
+        $query = Surat::whereIn('id', $data['ids'])->where('created_by', $request->user()->id);
+        $jumlah = $query->count();
+        $query->delete();
+
+        return redirect()->route('surat.index')->with('status', "{$jumlah} surat dipindahkan ke tempat sampah.");
+    }
+
+    /**
+     * Daftar surat yang ada di tempat sampah.
+     */
+    public function sampah(Request $request): View
+    {
+        abort_unless($request->user()->isStaff(), 403, 'Hanya Staff yang memiliki akses ke tempat sampah surat.');
+
+        $surat = Surat::onlyTrashed()
+            ->where('created_by', $request->user()->id)
+            ->latest('deleted_at')
+            ->paginate(15);
+
+        return view('surat.sampah', compact('surat'));
+    }
+
+    /**
+     * Pulihkan surat terpilih dari tempat sampah.
+     */
+    public function pulihkan(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->isStaff(), 403, 'Hanya Staff yang boleh memulihkan surat.');
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $query = Surat::onlyTrashed()->whereIn('id', $data['ids'])->where('created_by', $request->user()->id);
+        $jumlah = $query->count();
+        $query->restore();
+
+        return redirect()->route('surat.sampah')->with('status', "{$jumlah} surat dipulihkan.");
+    }
+
+    /**
+     * Hapus permanen surat terpilih dari tempat sampah, termasuk file
+     * lampiran fisiknya. Baris lampiran & disposisi terkait ikut terhapus
+     * otomatis di database (foreign key cascadeOnDelete).
+     */
+    public function hapusPermanen(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->isStaff(), 403, 'Hanya Staff yang boleh menghapus surat secara permanen.');
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $suratList = Surat::onlyTrashed()
+            ->whereIn('id', $data['ids'])
+            ->where('created_by', $request->user()->id)
+            ->with('lampiran')
+            ->get();
+
+        foreach ($suratList as $surat) {
+            foreach ($surat->lampiran as $file) {
+                Storage::disk('public')->delete($file->path_file);
+            }
+            $surat->forceDelete();
+        }
+
+        return redirect()->route('surat.sampah')->with('status', $suratList->count().' surat dihapus permanen.');
     }
 
     private function authorizeStaffOnly(Request $request): void

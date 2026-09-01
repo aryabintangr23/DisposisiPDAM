@@ -83,4 +83,85 @@ class MessageController extends Controller
 
         return view('messages.show', compact('pesan'));
     }
+
+    /**
+     * Pindahkan pesan terpilih ke tempat sampah.
+     *
+     * CATATAN PENTING: kolom deleted_at di tabel messages cuma satu untuk
+     * seluruh baris (bukan per-pengirim/per-penerima). Artinya kalau salah
+     * satu pihak (pengirim ATAU penerima) menghapus pesan ini, pesan itu
+     * akan hilang dari tempat sampah KEDUA pihak, bukan cuma punya dia.
+     * Ini beda dengan Gmail yang punya status hapus terpisah per akun.
+     * Kalau perilaku ini tidak sesuai kebutuhan, beri tahu saya - perlu
+     * kolom tambahan (mis. dihapus_oleh_pengirim_at / dihapus_oleh_penerima_at)
+     * untuk membuatnya per-pengguna.
+     */
+    public function hapus(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:messages,id'],
+        ]);
+
+        $query = Message::whereIn('id', $data['ids'])
+            ->where(fn ($q) => $q->where('sender_id', $user->id)->orWhere('receiver_id', $user->id));
+
+        $jumlah = $query->count();
+        $query->delete();
+
+        return redirect()->route('pesan.index')->with('status', "{$jumlah} pesan dipindahkan ke tempat sampah.");
+    }
+
+    public function sampah(Request $request): View
+    {
+        $user = $request->user();
+
+        $pesan = Message::onlyTrashed()
+            ->where(fn ($q) => $q->where('sender_id', $user->id)->orWhere('receiver_id', $user->id))
+            ->with(['pengirim.role', 'penerima.role'])
+            ->latest('deleted_at')
+            ->paginate(15);
+
+        return view('messages.sampah', compact('pesan'));
+    }
+
+    public function pulihkan(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $query = Message::onlyTrashed()
+            ->whereIn('id', $data['ids'])
+            ->where(fn ($q) => $q->where('sender_id', $user->id)->orWhere('receiver_id', $user->id));
+
+        $jumlah = $query->count();
+        $query->restore();
+
+        return redirect()->route('pesan.sampah')->with('status', "{$jumlah} pesan dipulihkan.");
+    }
+
+    public function hapusPermanen(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $query = Message::onlyTrashed()
+            ->whereIn('id', $data['ids'])
+            ->where(fn ($q) => $q->where('sender_id', $user->id)->orWhere('receiver_id', $user->id));
+
+        $jumlah = $query->count();
+        $query->forceDelete();
+
+        return redirect()->route('pesan.sampah')->with('status', "{$jumlah} pesan dihapus permanen.");
+    }
 }

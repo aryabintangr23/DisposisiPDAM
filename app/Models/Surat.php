@@ -7,9 +7,12 @@ use App\Enums\StatusSurat;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Surat extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'surat';
 
     protected $fillable = [
@@ -42,6 +45,8 @@ class Surat extends Model
 
     public function disposisiTerakhir(): ?Disposisi
     {
-        return $this->disposisi()->latest('created_at')->first();
+        // reorder() wajib dipakai karena relasi disposisi() di atas sudah
+        // punya orderBy('created_at') ascending.
+        return $this->disposisi()->reorder('created_at', 'desc')->first();
     }
 }

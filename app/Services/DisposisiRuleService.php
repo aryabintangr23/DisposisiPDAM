@@ -54,4 +54,27 @@ class DisposisiRuleService
     {
         return $user->isStaff();
     }
+
+    /**
+     * Apakah $user boleh menetapkan keputusan ($keputusan: 'diterima' | 'ditolak' | 'perlu_revisi')
+     * atas sebuah surat, dengan $penerima sebagai tujuan disposisi balasannya.
+     *
+     * Aturan saat ini: keputusan hanya sah kalau arah pengirim->penerima-nya
+     * sendiri sudah sah menurut ALUR_SAH (dicek terpisah lewat bolehDisposisi()),
+     * dan role $user memang berwenang memberi keputusan jenis itu:
+     * - Direktur: diterima / ditolak
+     * - Kabag: perlu_revisi (ke Staff)
+     */
+    public function bolehSetKeputusan(User $user, User $penerima, string $keputusan): bool
+    {
+        if ($user->isDirektur()) {
+            return in_array($keputusan, ['diterima', 'ditolak'], true);
+        }
+
+        if ($user->isKabag()) {
+            return $keputusan === 'perlu_revisi';
+        }
+
+        return false;
+    }
 }
