@@ -26,6 +26,41 @@
         <p class="mt-1 text-sm text-slate-500">{{ $surat->perihal }}</p>
     </div>
 
+    @php
+        $dispoTerakhir = $surat->disposisiTerakhir();
+        $bisaMemutuskan = auth()->user()->isDirektur()
+            && $dispoTerakhir
+            && $dispoTerakhir->penerima_id === auth()->id()
+            && $surat->status->value === 'baru';
+    @endphp
+
+    @if ($bisaMemutuskan)
+        <div class="mb-6 rounded-xl border border-brand-200 bg-brand-50 p-5">
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-brand-800">Keputusan Surat</h3>
+            <p class="mt-1 text-sm text-brand-800/80">
+                Surat ini menunggu keputusan Anda. Pilih Terima atau Tolak — keputusan akan otomatis dikirim
+                sebagai disposisi balasan ke {{ $dispoTerakhir->pengirim->nama }} (Kabag) dan status surat akan diperbarui.
+            </p>
+            <form method="POST" action="{{ route('disposisi.keputusan', $surat) }}" class="mt-4 space-y-3">
+                @csrf
+                <textarea name="catatan" rows="2" placeholder="Catatan (opsional)"
+                    class="w-full rounded-lg border border-brand-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"></textarea>
+                <div class="flex flex-col gap-3 sm:flex-row">
+                    <button type="submit" name="keputusan" value="diterima"
+                        class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Terima
+                    </button>
+                    <button type="submit" name="keputusan" value="ditolak"
+                        class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                        Tolak
+                    </button>
+                </div>
+            </form>
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {{-- Kolom kiri: info surat + lampiran --}}
         <div class="space-y-6 lg:col-span-2">
@@ -114,12 +149,22 @@
                         'diterima' => 'bg-amber-50 text-amber-700',
                         default => 'bg-slate-100 text-slate-600',
                     };
+    
+                    $prioritasDotColor = fn ($p) => match ($p) {
+                        'sangat_segera' => 'bg-red-500 ring-red-100',
+                        'segera' => 'bg-yellow-400 ring-yellow-100',
+                        'biasa' => 'bg-green-500 ring-green-100',
+                        'tunggu_petunjuk' => 'bg-blue-500 ring-blue-100',
+                        default => 'bg-slate-300 ring-slate-100',
+                    };
                 @endphp
 
                 <ol class="relative space-y-6 border-l-2 border-slate-100 pl-5">
                     @foreach ($surat->disposisi as $d)
                         <li class="relative">
-                            <span class="absolute -left-[27px] top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-white bg-brand-500 ring-2 ring-brand-100"></span>
+                            <span
+                                class="absolute -left-[27px] top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-white ring-2 {{ $prioritasDotColor($d->prioritas->value) }}"
+                                title="Prioritas: {{ $d->prioritas->label() }}"></span>
 
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ $prioritasColor($d->prioritas->value) }}">
@@ -173,14 +218,16 @@
             @if ($penerimaOptions->isNotEmpty())
                 <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                     <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-brand-700">Kirim Disposisi Baru</h3>
-                    <form method="POST" action="{{ route('disposisi.store', $surat) }}" class="space-y-4">
+                    <form method="POST" action="{{ route('disposisi.store', $surat) }}" class="space-y-4" x-data="{ penerimaRole: '' }">
                         @csrf
                         <div>
                             <label class="mb-1.5 block text-sm font-medium text-slate-700">Kirim ke</label>
                             <select name="penerima_id" required
+                                x-on:change="penerimaRole = $event.target.options[$event.target.selectedIndex].dataset.role"
                                 class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                                <option value="" data-role="" disabled selected>-- Pilih penerima --</option>
                                 @foreach ($penerimaOptions as $opt)
-                                    <option value="{{ $opt->id }}">{{ $opt->nama }} ({{ ucwords(str_replace('_',' ',$opt->role->nama_role)) }})</option>
+                                    <option value="{{ $opt->id }}" data-role="{{ $opt->role->nama_role }}">{{ $opt->nama }} ({{ ucwords(str_replace('_',' ',$opt->role->nama_role)) }})</option>
                                 @endforeach
                             </select>
                         </div>
@@ -199,6 +246,29 @@
                             <textarea name="instruksi" rows="3"
                                 class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"></textarea>
                         </div>
+
+                        @if (auth()->user()->isKabag())
+                            {{-- Kabag -> Staff: opsi menandai surat "Perlu Revisi". --}}
+                            <div x-show="penerimaRole === 'staff_umum'" x-cloak
+                                 class="rounded-lg border border-orange-200 bg-orange-50 px-3.5 py-3">
+                                <label class="flex items-start gap-2 text-sm text-orange-800">
+                                    <input type="checkbox" name="keputusan_surat" value="perlu_revisi"
+                                           class="mt-0.5 h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500">
+                                    <span>Tandai status surat ini sebagai <strong>Perlu Revisi</strong></span>
+                                </label>
+                            </div>
+                        @endif
+
+                        @if (auth()->user()->isDirektur())
+                            {{-- Keputusan Diterima/Ditolak sekarang menggunakan tombol khusus
+                                 di bagian atas halaman (kartu "Keputusan Surat"), bukan di sini. --}}
+                            <div x-show="penerimaRole === 'kabag_umum'" x-cloak
+                                 class="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 text-xs text-slate-500">
+                                Untuk menyetujui atau menolak surat ini, gunakan tombol <strong>Terima</strong> / <strong>Tolak</strong>
+                                di bagian atas halaman. Form ini hanya untuk mengirim disposisi tambahan tanpa mengubah status.
+                            </div>
+                        @endif
+
                         <button type="submit"
                             class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>

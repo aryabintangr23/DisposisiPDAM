@@ -52,6 +52,21 @@ class User extends Authenticatable
         return $this->hasMany(Disposisi::class, 'penerima_id');
     }
 
+    public function pesanMasuk(): HasMany
+    {
+        return $this->hasMany(Message::class, 'receiver_id');
+    }
+
+    public function pesanKeluar(): HasMany
+    {
+        return $this->hasMany(Message::class, 'sender_id');
+    }
+
+    public function jumlahPesanBelumDibaca(): int
+    {
+        return $this->pesanMasuk()->where('is_read', false)->count();
+    }
+
     // Helper agar controller/policy tidak hardcode string role berulang kali.
     public function isStaff(): bool
     {

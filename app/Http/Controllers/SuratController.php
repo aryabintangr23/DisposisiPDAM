@@ -23,14 +23,14 @@ class SuratController extends Controller
         // surat yang pernah masuk/keluar melalui mereka (sebagai pengirim
         // atau penerima disposisi).
         if ($user->isStaff()) {
-            $surat = Surat::where('created_by', $user->id)->latest()->paginate(15);
+            $surat = Surat::with('disposisi')->where('created_by', $user->id)->latest()->paginate(15);
         } else {
             $suratIds = Disposisi::where('penerima_id', $user->id)
                 ->orWhere('pengirim_id', $user->id)
                 ->pluck('surat_id')
                 ->unique();
 
-            $surat = Surat::whereIn('id', $suratIds)->latest()->paginate(15);
+            $surat = Surat::with('disposisi')->whereIn('id', $suratIds)->latest()->paginate(15);
         }
 
         return view('surat.index', compact('surat'));

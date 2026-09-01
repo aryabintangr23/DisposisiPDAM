@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\Prioritas;
 use App\Enums\StatusDisposisi;
+use App\Enums\StatusSurat;
 use App\Http\Requests\StoreDisposisiRequest;
 use App\Models\Disposisi;
 use App\Models\Surat;
@@ -12,6 +13,7 @@ use App\Services\DisposisiRuleService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DisposisiController extends Controller
@@ -23,6 +25,11 @@ class DisposisiController extends Controller
         $penerima = User::findOrFail($data['penerima_id']);
 
         abort_unless($rule->bolehDisposisi($pengirim, $penerima), 403, 'Tujuan disposisi tidak sesuai alur yang diizinkan.');
+
+        $keputusan = $data['keputusan_surat'] ?? null;
+        if ($keputusan) {
+            abort_unless($rule->bolehSetKeputusan($pengirim, $penerima, $keputusan), 403, 'Keputusan surat tidak sesuai alur yang diizinkan.');
+        }
 
         $prioritas = Prioritas::from($data['prioritas']);
         $tanggalDisposisi = now();
@@ -37,6 +44,10 @@ class DisposisiController extends Controller
             'status' => StatusDisposisi::Terkirim,
         ]);
 
+        if ($keputusan) {
+            $surat->update(['status' => StatusSurat::from($keputusan)]);
+        }
+
         return redirect()->route('surat.show', $surat)->with('status', 'Disposisi berhasil dikirim.');
     }
 
@@ -49,6 +60,49 @@ class DisposisiController extends Controller
         $disposisi->update(['status' => StatusDisposisi::Selesai]);
 
         return back()->with('status', 'Disposisi ditandai selesai.');
+    }
+
+    /**
+     * Tombol "Terima" / "Tolak" khusus Direktur di halaman detail surat.
+     * Otomatis membuat disposisi balasan Direktur -> Kabag yang mengirim
+     * surat ini sebelumnya, sekaligus mengubah status Surat.
+     */
+    public function keputusan(Request $request, Surat $surat, DisposisiRuleService $rule): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user->isDirektur(), 403, 'Hanya Direktur yang boleh memberikan keputusan Terima/Tolak.');
+
+        $data = $request->validate([
+            'keputusan' => ['required', Rule::in(['diterima', 'ditolak'])],
+            'catatan' => ['nullable', 'string'],
+        ]);
+
+        $dispoTerakhir = $surat->disposisiTerakhir();
+        abort_unless($dispoTerakhir && $dispoTerakhir->penerima_id === $user->id, 403, 'Surat ini belum didisposisikan kepada Anda.');
+
+        $kabag = $dispoTerakhir->pengirim;
+        abort_unless($rule->bolehDisposisi($user, $kabag), 403, 'Tujuan pengembalian disposisi tidak sesuai alur yang diizinkan.');
+        abort_unless($rule->bolehSetKeputusan($user, $kabag, $data['keputusan']), 403, 'Keputusan surat tidak sesuai alur yang diizinkan.');
+
+        $prioritas = Prioritas::Biasa;
+        $tanggalDisposisi = now();
+
+        $surat->disposisi()->create([
+            'pengirim_id' => $user->id,
+            'penerima_id' => $kabag->id,
+            'tanggal_disposisi' => $tanggalDisposisi,
+            'prioritas' => $prioritas,
+            'batas_waktu' => $rule->hitungBatasWaktu($tanggalDisposisi, $prioritas),
+            'instruksi' => $data['catatan'] ?? null,
+            'status' => StatusDisposisi::Terkirim,
+        ]);
+
+        $surat->update(['status' => StatusSurat::from($data['keputusan'])]);
+
+        $label = $data['keputusan'] === 'diterima' ? 'Diterima' : 'Ditolak';
+
+        return redirect()->route('surat.show', $surat)
+            ->with('status', "Surat ditandai \"{$label}\" dan dikirim kembali ke {$kabag->nama}.");
     }
 
     /**

@@ -118,6 +118,19 @@
 
                 @auth
                 <div class="flex items-center gap-3">
+                    <a href="{{ route('pesan.index') }}" title="Pesan"
+                       class="relative rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-brand-700
+                              {{ request()->routeIs('pesan.*') ? 'bg-brand-50 text-brand-700' : '' }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        @php $jumlahBelumDibaca = auth()->user()->jumlahPesanBelumDibaca(); @endphp
+                        @if ($jumlahBelumDibaca > 0)
+                            <span class="absolute -right-0.5 -top-0.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[10px] font-bold text-white">
+                                {{ $jumlahBelumDibaca > 9 ? '9+' : $jumlahBelumDibaca }}
+                            </span>
+                        @endif
+                    </a>
                     <span class="hidden rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 sm:inline-block">
                         {{ ucwords(str_replace('_', ' ', auth()->user()->role->nama_role)) }}
                     </span>
