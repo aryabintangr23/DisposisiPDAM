@@ -9,8 +9,10 @@ use App\Models\Disposisi;
 use App\Models\Surat;
 use App\Models\User;
 use App\Services\DisposisiRuleService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DisposisiController extends Controller
 {
@@ -47,5 +49,27 @@ class DisposisiController extends Controller
         $disposisi->update(['status' => StatusDisposisi::Selesai]);
 
         return back()->with('status', 'Disposisi ditandai selesai.');
+    }
+
+    /**
+     * Generate PDF lembar disposisi untuk satu record disposisi tertentu,
+     * dipakai untuk kebutuhan arsip/cetak.
+     */
+    public function cetak(Request $request, Surat $surat, Disposisi $disposisi): StreamedResponse
+    {
+        abort_unless($disposisi->surat_id === $surat->id, 404);
+
+        $user = $request->user();
+        $terlibat = $surat->created_by === $user->id
+            || $disposisi->pengirim_id === $user->id
+            || $disposisi->penerima_id === $user->id;
+
+        abort_unless($terlibat, 403, 'Anda tidak memiliki akses untuk mencetak lembar disposisi ini.');
+
+        $disposisi->load(['pengirim.role', 'penerima.role']);
+
+        $pdf = Pdf::loadView('disposisi.cetak', compact('surat', 'disposisi'))->setPaper('a4');
+
+        return $pdf->stream("lembar-disposisi-{$surat->nomor_surat}-{$disposisi->id}.pdf");
     }
 }

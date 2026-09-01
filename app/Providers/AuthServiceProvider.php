@@ -2,29 +2,29 @@
 
 namespace App\Providers;
 
-// use Illuminate\Support\Facades\Gate;
+use App\Models\User;
+use App\Services\DisposisiRuleService;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 class AuthServiceProvider extends ServiceProvider
 {
-    /**
-     * The model to policy mappings for the application.
-     *
-     * @var array<class-string, class-string>
-     */
     protected $policies = [
-        // 'App\Models\Model' => 'App\Policies\ModelPolicy',
+        //
     ];
 
-    /**
-     * Register any authentication / authorization services.
-     *
-     * @return void
-     */
-    public function boot()
+    public function boot(): void
     {
         $this->registerPolicies();
 
-        //
+        // Otorisasi terpusat: apakah $user boleh mengirim disposisi ke $penerima.
+        Gate::define('kirim-disposisi', function (User $user, User $penerima) {
+            return app(DisposisiRuleService::class)->bolehDisposisi($user, $penerima);
+        });
+
+        // Otorisasi terpusat: apakah $user boleh menandai disposisi "selesai".
+        Gate::define('selesaikan-disposisi', function (User $user) {
+            return app(DisposisiRuleService::class)->bolehMenyelesaikan($user);
+        });
     }
 }

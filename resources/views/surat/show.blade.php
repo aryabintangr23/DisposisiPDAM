@@ -18,13 +18,18 @@
     </table>
 
     <h3>Lampiran</h3>
-    <ul>
-        @forelse ($surat->lampiran as $file)
-            <li><a href="{{ \Illuminate\Support\Facades\Storage::url($file->path_file) }}" target="_blank">{{ $file->nama_file }}</a> ({{ number_format($file->ukuran_file / 1024, 0) }} KB)</li>
-        @empty
-            <li>Tidak ada lampiran.</li>
-        @endforelse
-    </ul>
+    @forelse ($surat->lampiran as $file)
+        <div style="margin-bottom: 16px;">
+            <p>
+                {{ $file->nama_file }} ({{ number_format($file->ukuran_file / 1024, 0) }} KB)
+                — <a href="{{ \Illuminate\Support\Facades\Storage::url($file->path_file) }}" target="_blank">buka di tab baru</a>
+            </p>
+            {{-- Preview inline, aman karena lampiran dibatasi tipe PDF saja --}}
+            <iframe src="{{ \Illuminate\Support\Facades\Storage::url($file->path_file) }}" width="100%" height="500" style="border: 1px solid #ccc;"></iframe>
+        </div>
+    @empty
+        <p>Tidak ada lampiran.</p>
+    @endforelse
 
     {{-- Riwayat disposisi ditampilkan langsung di sini, tidak perlu buka halaman lain --}}
     <h3>Riwayat Disposisi</h3>
@@ -49,7 +54,9 @@
                 <td>{{ $d->instruksi ?? '-' }}</td>
                 <td>{{ $d->status->label() }}</td>
                 <td>
+                    <a href="{{ route('disposisi.cetak', [$surat, $d]) }}" target="_blank">Cetak PDF</a>
                     @if (auth()->user()->isStaff() && $d->penerima_id === auth()->id() && $d->status->value !== 'selesai')
+                        <br>
                         <form method="POST" action="{{ route('disposisi.selesaikan', [$surat, $d]) }}">
                             @csrf
                             <button type="submit">Tandai Selesai</button>
