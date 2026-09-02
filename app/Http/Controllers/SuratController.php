@@ -19,22 +19,44 @@ class SuratController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
+        $tanggal = $request->query('tanggal');
 
         // Staff melihat surat yang ia buat sendiri. Kabag & Direktur melihat
         // surat yang pernah masuk/keluar melalui mereka (sebagai pengirim
         // atau penerima disposisi).
         if ($user->isStaff()) {
-            $surat = Surat::with('disposisi')->where('created_by', $user->id)->latest()->paginate(15);
+            $scope = fn () => Surat::where('created_by', $user->id);
         } else {
             $suratIds = Disposisi::where('penerima_id', $user->id)
                 ->orWhere('pengirim_id', $user->id)
                 ->pluck('surat_id')
                 ->unique();
 
-            $surat = Surat::with('disposisi')->whereIn('id', $suratIds)->latest()->paginate(15);
+            $scope = fn () => Surat::whereIn('id', $suratIds);
         }
 
-        return view('surat.index', compact('surat'));
+        $query = $scope()->with('disposisi');
+
+        if ($tanggal) {
+            $query->whereDate('tanggal_surat', $tanggal);
+        }
+
+        $surat = $query->latest()->paginate(15)->withQueryString();
+
+        // Tanggal-tanggal yang punya surat (untuk menandai bulatan pada
+        // kalender di dashboard), dibatasi ke bulan yang sedang dilihat.
+        $bulan = $request->query('bulan', now()->format('Y-m'));
+        if (! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', (string) $bulan)) {
+            $bulan = now()->format('Y-m');
+        }
+        $tanggalBersurat = $scope()
+            ->whereYear('tanggal_surat', substr($bulan, 0, 4))
+            ->whereMonth('tanggal_surat', substr($bulan, 5, 2))
+            ->selectRaw('DATE(tanggal_surat) as tgl')
+            ->distinct()
+            ->pluck('tgl');
+
+        return view('surat.index', compact('surat', 'tanggal', 'bulan', 'tanggalBersurat'));
     }
 
     public function create(Request $request): View

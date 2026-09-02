@@ -11,13 +11,6 @@
 
         <div class="flex items-center gap-2">
             @if (auth()->user()->isStaff())
-                <a href="{{ route('surat.sampah') }}"
-                   class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Tempat Sampah
-                </a>
                 <a href="{{ route('surat.create') }}"
                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -28,6 +21,23 @@
             @endif
         </div>
     </div>
+
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
+
+    {{-- ============ KOLOM UTAMA: DAFTAR SURAT ============ --}}
+    <div class="lg:col-span-3">
+
+    @if ($tanggal)
+        <div class="mb-4">
+            <a href="{{ route('surat.index') }}"
+               class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100">
+                {{ \Carbon\Carbon::parse($tanggal)->translatedFormat('d F Y') }}
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </a>
+        </div>
+    @endif
 
     <form method="POST" action="{{ route('surat.hapus') }}"
           x-data="{ selected: [], allIds: {{ $surat->pluck('id')->map(fn ($id) => (string) $id)->toJson() }} }">
@@ -137,7 +147,13 @@
                                 <td colspan="8" class="px-5 py-12 text-center text-slate-400">
                                     <div class="flex flex-col items-center gap-2">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                        <p class="text-sm">Belum ada surat.</p>
+                                        <p class="text-sm">
+                                            @if ($tanggal)
+                                                Tidak ada surat pada tanggal ini.
+                                            @else
+                                                Belum ada surat.
+                                            @endif
+                                        </p>
                                     </div>
                                 </td>
                             </tr>
@@ -150,5 +166,73 @@
 
     <div class="mt-5">
         {{ $surat->links() }}
+    </div>
+
+    </div>
+    {{-- /kolom utama --}}
+
+    {{-- ============ KOLOM SAMPING: KALENDER ============ --}}
+    <div class="lg:col-span-1">
+        @php
+            $bulanAwal = \Carbon\Carbon::createFromFormat('Y-m', $bulan)->startOfMonth();
+            $bulanSebelumnya = $bulanAwal->copy()->subMonth()->format('Y-m');
+            $bulanSesudahnya = $bulanAwal->copy()->addMonth()->format('Y-m');
+            $mulaiGrid = $bulanAwal->copy()->startOfWeek(\Carbon\Carbon::SUNDAY);
+            $selesaiGrid = $bulanAwal->copy()->endOfMonth()->endOfWeek(\Carbon\Carbon::SATURDAY);
+            $hariIni = now()->format('Y-m-d');
+        @endphp
+
+        <div class="sticky top-20 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="mb-3 flex items-center justify-between">
+                <a href="{{ route('surat.index', array_filter(['bulan' => $bulanSebelumnya])) }}"
+                   class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </a>
+                <p class="text-sm font-semibold text-slate-700">{{ $bulanAwal->translatedFormat('F Y') }}</p>
+                <a href="{{ route('surat.index', array_filter(['bulan' => $bulanSesudahnya])) }}"
+                   class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+            </div>
+
+            <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-slate-400">
+                <span>M</span><span>S</span><span>S</span><span>R</span><span>K</span><span>J</span><span>S</span>
+            </div>
+
+            <div class="mt-1 grid grid-cols-7 gap-1">
+                @php $kursor = $mulaiGrid->copy(); @endphp
+                @while ($kursor->lte($selesaiGrid))
+                    @php
+                        $iso = $kursor->format('Y-m-d');
+                        $dalamBulanIni = $kursor->format('Y-m') === $bulan;
+                        $adaSurat = $tanggalBersurat->contains($iso);
+                        $terpilih = $tanggal === $iso;
+                        $hariBerjalan = $iso === $hariIni;
+                    @endphp
+                    <a href="{{ route('surat.index', array_filter(['bulan' => $bulan, 'tanggal' => $terpilih ? null : $iso])) }}"
+                       class="relative flex h-8 items-center justify-center rounded-lg text-xs transition
+                              {{ ! $dalamBulanIni ? 'text-slate-300' : 'text-slate-600 hover:bg-slate-100' }}
+                              {{ $terpilih ? 'bg-brand-700 text-white hover:bg-brand-700' : '' }}
+                              {{ $hariBerjalan && ! $terpilih ? 'font-bold text-brand-700 ring-1 ring-inset ring-brand-200' : '' }}">
+                        {{ $kursor->day }}
+                        @if ($adaSurat)
+                            <span class="absolute bottom-0.5 h-1 w-1 rounded-full {{ $terpilih ? 'bg-white' : 'bg-brand-600' }}"></span>
+                        @endif
+                    </a>
+                    @php $kursor->addDay(); @endphp
+                @endwhile
+            </div>
+
+            <p class="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
+                <span class="h-1.5 w-1.5 rounded-full bg-brand-600"></span>
+                Tanggal dengan surat
+            </p>
+        </div>
+    </div>
+
     </div>
 @endsection

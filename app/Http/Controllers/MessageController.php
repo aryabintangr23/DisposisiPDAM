@@ -18,19 +18,18 @@ class MessageController extends Controller
         $user = $request->user();
         $tab = $request->query('tab') === 'sent' ? 'sent' : 'inbox';
 
-        if ($tab === 'sent') {
-            $pesan = Message::with('penerima.role')
-                ->where('sender_id', $user->id)
-                ->latest()
-                ->paginate(15)
-                ->withQueryString();
-        } else {
-            $pesan = Message::with('pengirim.role')
-                ->where('receiver_id', $user->id)
-                ->latest()
-                ->paginate(15)
-                ->withQueryString();
-        }
+        $query = $tab === 'sent'
+            ? Message::with('penerima.role')->where('sender_id', $user->id)
+            : Message::with('pengirim.role')->where('receiver_id', $user->id);
+
+        // Pesan yang BELUM dibaca oleh pihak yang didisposisikan (penerima)
+        // selalu ditampilkan paling atas; yang sudah dibaca turun ke bawah.
+        // Di dalam masing-masing kelompok, urutan tetap dari yang terbaru.
+        $pesan = $query
+            ->orderBy('is_read', 'asc')
+            ->orderBy('created_at', 'desc')
+            ->paginate(15)
+            ->withQueryString();
 
         return view('messages.index', compact('pesan', 'tab'));
     }

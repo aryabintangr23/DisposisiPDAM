@@ -42,16 +42,15 @@
             :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
         >
             <div class="flex h-16 items-center gap-3 border-b border-white/10 px-5">
-                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-lg font-bold">
-                    💧
-                </div>
+                <img src="{{ asset('images/LOGO PERUMDA.png') }}" 
+                alt="Logo Tirta Gemilang" class="h-10 w-10">
                 <div class="leading-tight">
                     <p class="text-sm font-bold tracking-wide">TIRTA GEMILANG</p>
                     <p class="text-[11px] text-brand-200">Sistem Disposisi Surat</p>
                 </div>
             </div>
 
-            <nav class="mt-4 space-y-1 px-3">
+            <nav class="mt-4 space-y-1 overflow-y-auto px-3" style="max-height: calc(100vh - 4rem - 5.5rem);">
                 <a href="{{ route('surat.index') }}"
                    class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition
                           {{ request()->routeIs('surat.*') && !request()->routeIs('surat.create') ? 'bg-white/10 text-white' : 'text-brand-100 hover:bg-white/5 hover:text-white' }}">
@@ -71,6 +70,38 @@
                     Input Surat Baru
                 </a>
                 @endif
+
+                <a href="{{ route('pesan.index') }}"
+                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition
+                          {{ request()->routeIs('pesan.*') && !request()->routeIs('pesan.sampah') ? 'bg-white/10 text-white' : 'text-brand-100 hover:bg-white/5 hover:text-white' }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Pesan
+                </a>
+
+                {{-- ============ TEMPAT SAMPAH ============ --}}
+                <p class="mt-5 mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-300">Tempat Sampah</p>
+
+                @if (auth()->check() && auth()->user()->isStaff())
+                <a href="{{ route('surat.sampah') }}"
+                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition
+                          {{ request()->routeIs('surat.sampah') ? 'bg-white/10 text-white' : 'text-brand-100 hover:bg-white/5 hover:text-white' }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Sampah Surat
+                </a>
+                @endif
+
+                <a href="{{ route('pesan.sampah') }}"
+                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition
+                          {{ request()->routeIs('pesan.sampah') ? 'bg-white/10 text-white' : 'text-brand-100 hover:bg-white/5 hover:text-white' }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Sampah Pesan
+                </a>
             </nav>
 
             @auth

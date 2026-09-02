@@ -10,13 +10,6 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <a href="{{ route('pesan.sampah') }}"
-               class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Tempat Sampah
-            </a>
             <a href="{{ route('pesan.create') }}"
                class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -66,15 +59,26 @@
 
         <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <ul class="divide-y divide-slate-100">
+                @php $groupSebelumnya = null; @endphp
                 @forelse ($pesan as $item)
+                    @php $groupSekarang = ! $item->is_read ? 'belum' : 'sudah'; @endphp
+
+                    {{-- Pesan belum dibaca selalu tampil di atas, yang sudah dibaca turun ke bawah --}}
+                    @if ($groupSekarang !== $groupSebelumnya)
+                        <li class="bg-slate-50 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                            {{ $groupSekarang === 'belum' ? 'Belum Dibaca' : 'Sudah Dibaca' }}
+                        </li>
+                        @php $groupSebelumnya = $groupSekarang; @endphp
+                    @endif
+
                     <li class="flex items-center gap-3 px-3">
                         <input type="checkbox" name="ids[]" value="{{ $item->id }}" x-model="selected"
                                class="h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
 
                         <a href="{{ route('pesan.show', $item) }}" class="flex flex-1 items-center gap-4 py-4 transition hover:bg-slate-50">
-                            {{-- Titik indikator belum dibaca (hanya relevan di Kotak Masuk) --}}
+                            {{-- Titik indikator belum dibaca --}}
                             <span class="flex h-2.5 w-2.5 shrink-0 items-center justify-center">
-                                @if ($tab === 'inbox' && ! $item->is_read)
+                                @if (! $item->is_read)
                                     <span class="h-2.5 w-2.5 rounded-full bg-brand-600"></span>
                                 @endif
                             </span>
@@ -85,12 +89,12 @@
 
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center justify-between gap-3">
-                                    <p class="truncate text-sm {{ $tab === 'inbox' && ! $item->is_read ? 'font-bold text-slate-900' : 'font-medium text-slate-700' }}">
+                                    <p class="truncate text-sm {{ ! $item->is_read ? 'font-bold text-slate-900' : 'font-medium text-slate-700' }}">
                                         {{ $tab === 'inbox' ? $item->pengirim->nama : 'Kepada: '.$item->penerima->nama }}
                                     </p>
                                     <span class="shrink-0 text-xs text-slate-400">{{ $item->created_at->format('d-m-Y H:i') }}</span>
                                 </div>
-                                <p class="truncate text-sm {{ $tab === 'inbox' && ! $item->is_read ? 'font-semibold text-slate-800' : 'text-slate-600' }}">
+                                <p class="truncate text-sm {{ ! $item->is_read ? 'font-semibold text-slate-800' : 'text-slate-600' }}">
                                     {{ $item->subject }}
                                     @if ($item->surat_id)
                                         <span class="ml-1 inline-flex items-center rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 align-middle">Disposisi</span>
