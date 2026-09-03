@@ -165,9 +165,11 @@ class SuratController extends Controller
 
     /**
      * Form edit data surat. Hanya Staff yang membuat surat itu sendiri yang
-     * boleh mengedit, dan hanya selama status surat masih "Baru" (belum ada
-     * keputusan Diterima/Ditolak/Perlu Revisi dari Direktur/Kabag), supaya
-     * data yang sudah didisposisikan tidak berubah tanpa jejak.
+     * boleh mengedit, dan hanya selama status surat masih "Baru" atau
+     * "Perlu Revisi" (belum ada keputusan Diterima/Ditolak dari Direktur),
+     * supaya data yang sudah diputuskan final tidak berubah tanpa jejak.
+     * "Perlu Revisi" tetap boleh diedit karena itu justru maksudnya: Kabag
+     * meminta Staff memperbaiki surat sebelum dikirim ulang.
      */
     public function edit(Request $request, Surat $surat): View
     {
@@ -318,7 +320,7 @@ class SuratController extends Controller
 
         abort_unless($user->isStaff() && $surat->created_by === $user->id, 403, 'Anda tidak memiliki akses untuk mengedit surat ini.');
 
-        abort_if($surat->status->value !== 'baru', 403, 'Surat yang sudah diputuskan (diterima/ditolak/perlu revisi) tidak bisa diedit lagi.');
+        abort_unless(in_array($surat->status->value, ['baru', 'perlu_revisi'], true), 403, 'Surat yang sudah diputuskan (diterima/ditolak) tidak bisa diedit lagi.');
     }
 
     private function authorizeAkses(Request $request, Surat $surat): void

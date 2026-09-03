@@ -48,20 +48,38 @@
         </a>
     </div>
 
+    {{--
+        Satu form dipakai bersama untuk dua aksi ("Tandai Sudah Dibaca" &
+        "Pindahkan ke Sampah") lewat atribut formaction pada masing-masing
+        tombol, supaya checkbox terpilih (state Alpine `selected`) tidak
+        perlu diduplikasi ke form terpisah.
+    --}}
     <form method="POST" action="{{ route('pesan.hapus') }}"
           x-data="{ selected: [], allIds: {{ $pesan->pluck('id')->map(fn ($id) => (string) $id)->toJson() }} }">
         @csrf
 
-        <div class="mb-3 flex items-center justify-between" x-show="selected.length > 0" x-cloak>
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2" x-show="selected.length > 0" x-cloak>
             <p class="text-sm text-slate-500"><span x-text="selected.length"></span> pesan dipilih</p>
-            <button type="submit"
-                    onclick="return confirm('Pindahkan pesan yang dipilih ke tempat sampah?')"
-                    class="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Pindahkan ke Sampah
-            </button>
+            <div class="flex items-center gap-2">
+                @if ($tab === 'inbox')
+                    {{-- Menandai dibaca hanya masuk akal untuk pesan yang diterima (Kotak Masuk). --}}
+                    <button type="submit" formaction="{{ route('pesan.tandaiDibaca') }}"
+                            class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Tandai Sudah Dibaca
+                    </button>
+                @endif
+                <button type="submit" formaction="{{ route('pesan.hapus') }}"
+                        onclick="return confirm('Pindahkan pesan yang dipilih ke tempat sampah?')"
+                        class="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Pindahkan ke Sampah
+                </button>
+            </div>
         </div>
 
         <div class="mb-2 flex items-center gap-2 px-1">

@@ -84,6 +84,34 @@ class MessageController extends Controller
     }
 
     /**
+     * Tandai beberapa pesan terpilih (checkbox) sekaligus sebagai sudah
+     * dibaca, supaya pengguna tidak perlu membuka pesan satu per satu
+     * hanya untuk menghilangkan status "Belum Dibaca"-nya.
+     *
+     * Hanya pesan yang MASUK ke pengguna ini (dia sebagai receiver) yang
+     * bisa ditandai dibaca lewat sini — menandai pesan yang dia kirim
+     * sendiri sebagai "dibaca" tidak ada artinya.
+     */
+    public function tandaiDibaca(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:messages,id'],
+        ]);
+
+        $query = Message::whereIn('id', $data['ids'])
+            ->where('receiver_id', $user->id)
+            ->where('is_read', false);
+
+        $jumlah = $query->count();
+        $query->update(['is_read' => true, 'read_at' => now()]);
+
+        return redirect()->route('pesan.index')->with('status', "{$jumlah} pesan ditandai sudah dibaca.");
+    }
+
+    /**
      * Pindahkan pesan terpilih ke tempat sampah.
      *
      * CATATAN PENTING: kolom deleted_at di tabel messages cuma satu untuk

@@ -39,6 +39,7 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/surat/{surat}/disposisi', [DisposisiController::class, 'store'])->name('disposisi.store');
     Route::post('/surat/{surat}/keputusan', [DisposisiController::class, 'keputusan'])->name('disposisi.keputusan');
+    Route::post('/surat/{surat}/review-revisi', [DisposisiController::class, 'reviewRevisi'])->name('disposisi.reviewRevisi');
     Route::post('/surat/{surat}/disposisi/{disposisi}/selesai', [DisposisiController::class, 'selesaikan'])->name('disposisi.selesaikan');
     Route::get('/surat/{surat}/disposisi/{disposisi}/cetak', [DisposisiController::class, 'cetak'])->name('disposisi.cetak');
 
@@ -51,6 +52,7 @@ Route::middleware('auth')->group(function () {
         // Sama seperti di atas: /pesan/sampah harus sebelum /pesan/{pesan}.
         Route::get('/sampah', [MessageController::class, 'sampah'])->name('sampah');
         Route::post('/hapus', [MessageController::class, 'hapus'])->name('hapus');
+        Route::post('/tandai-dibaca', [MessageController::class, 'tandaiDibaca'])->name('tandaiDibaca');
         Route::post('/sampah/pulihkan', [MessageController::class, 'pulihkan'])->name('pulihkan');
         Route::post('/sampah/hapus-permanen', [MessageController::class, 'hapusPermanen'])->name('hapusPermanen');
 

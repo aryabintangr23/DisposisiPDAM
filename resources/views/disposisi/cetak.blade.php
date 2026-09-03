@@ -14,9 +14,16 @@
     table.grid { border-collapse: collapse; }
     table.grid td { border: 1px solid #000; padding: 6px; vertical-align: top; }
     ul.pilihan { list-style: none; margin: 4px 0; padding-left: 0; }
-    ul.pilihan li { margin-bottom: 2px; }
-    .checked::before { content: "\2611  "; } {{-- kotak tercentang --}}
-    .unchecked::before { content: "\2610  "; } {{-- kotak kosong --}}
+    ul.pilihan li { margin-bottom: 4px; }
+    .kotak {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border: 1px solid #000;
+        margin-right: 6px;
+        vertical-align: middle;
+    }
+    .kotak.centang { background: #000; } {{-- hanya opsi terpilih yang diisi hitam --}}
     .kotak-instruksi { border: 1px solid #000; min-height: 100px; padding: 6px; margin-top: 4px; }
 </style>
 </head>
@@ -56,18 +63,18 @@
             <td width="50%" style="vertical-align: top;">
                 <strong>Disposisi Untuk:</strong>
                 <ul class="pilihan">
-                    <li class="{{ $disposisi->penerima->role->nama_role === 'staff_umum' ? 'checked' : 'unchecked' }}">Staff Umum</li>
-                    <li class="{{ $disposisi->penerima->role->nama_role === 'kabag_umum' ? 'checked' : 'unchecked' }}">Kabag Umum &amp; Administrasi</li>
-                    <li class="{{ $disposisi->penerima->role->nama_role === 'direktur' ? 'checked' : 'unchecked' }}">Direktur</li>
+                    <li><span class="kotak {{ $disposisi->penerima->role->nama_role === 'staff_umum' ? 'centang' : '' }}"></span>Staff Umum</li>
+                    <li><span class="kotak {{ $disposisi->penerima->role->nama_role === 'kabag_umum' ? 'centang' : '' }}"></span>Kabag Umum &amp; Administrasi</li>
+                    <li><span class="kotak {{ $disposisi->penerima->role->nama_role === 'direktur' ? 'centang' : '' }}"></span>Direktur</li>
                 </ul>
             </td>
             <td width="50%" style="vertical-align: top;">
                 <strong>Prioritas:</strong>
                 <ul class="pilihan">
-                    <li class="{{ $disposisi->prioritas->value === 'sangat_segera' ? 'checked' : 'unchecked' }}">Sangat Segera (3 hari)</li>
-                    <li class="{{ $disposisi->prioritas->value === 'segera' ? 'checked' : 'unchecked' }}">Segera (5 hari)</li>
-                    <li class="{{ $disposisi->prioritas->value === 'biasa' ? 'checked' : 'unchecked' }}">Biasa (7 hari)</li>
-                    <li class="{{ $disposisi->prioritas->value === 'tunggu_petunjuk' ? 'checked' : 'unchecked' }}">Tunggu Petunjuk</li>
+                    <li><span class="kotak {{ $disposisi->prioritas->value === 'sangat_segera' ? 'centang' : '' }}"></span>Sangat Segera (3 hari)</li>
+                    <li><span class="kotak {{ $disposisi->prioritas->value === 'segera' ? 'centang' : '' }}"></span>Segera (5 hari)</li>
+                    <li><span class="kotak {{ $disposisi->prioritas->value === 'biasa' ? 'centang' : '' }}"></span>Biasa (7 hari)</li>
+                    <li><span class="kotak {{ $disposisi->prioritas->value === 'tunggu_petunjuk' ? 'centang' : '' }}"></span>Tunggu Petunjuk</li>
                 </ul>
             </td>
         </tr>

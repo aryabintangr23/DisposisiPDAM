@@ -194,6 +194,98 @@ class DisposisiController extends Controller
     }
 
     /**
+     * Tombol "Diterima" / "Minta Revisi Lagi" khusus Kabag di halaman detail
+     * surat, dipakai untuk mereview revisi yang baru dikirim balik oleh
+     * Staff (status Surat masih "Perlu Revisi", dan disposisi terakhir
+     * adalah Staff -> Kabag ini).
+     *
+     * - "Diterima": revisi sudah sesuai, status Surat dikembalikan ke
+     *   "Baru" (TIDAK lagi "Perlu Revisi") supaya suratnya bisa lanjut ke
+     *   alur berikutnya (mis. diteruskan ke Direktur lewat form "Kirim
+     *   Disposisi Baru" seperti biasa).
+     * - "Revisi": masih belum sesuai, status Surat tetap/kembali "Perlu
+     *   Revisi" dan dikirim ulang ke Staff yang sama.
+     *
+     * Sama seperti keputusan(), aksi ini otomatis membuat satu disposisi
+     * balasan Kabag -> Staff supaya ada jejaknya di Riwayat Disposisi.
+     */
+    public function reviewRevisi(
+        Request $request,
+        Surat $surat,
+        DisposisiRuleService $rule
+    ): RedirectResponse {
+        $user = $request->user();
+
+        abort_unless(
+            $user->isKabag(),
+            403,
+            'Hanya Kabag yang boleh menandai revisi Diterima/Revisi.'
+        );
+
+        $data = $request->validate([
+            'keputusan' => [
+                'required',
+                Rule::in(['diterima', 'revisi'])
+            ],
+            'catatan' => [
+                'nullable',
+                'string'
+            ],
+        ]);
+
+        $dispoTerakhir = $surat->disposisiTerakhir();
+
+        abort_unless(
+            $dispoTerakhir
+                && $dispoTerakhir->penerima_id === $user->id
+                && $surat->status->value === 'perlu_revisi',
+            403,
+            'Surat ini tidak sedang menunggu review revisi dari Anda.'
+        );
+
+        $staff = $dispoTerakhir->pengirim;
+
+        abort_unless(
+            $rule->bolehDisposisi($user, $staff),
+            403,
+            'Tujuan pengembalian disposisi tidak sesuai alur yang diizinkan.'
+        );
+
+        $prioritas = Prioritas::Biasa;
+        $tanggalDisposisi = now();
+
+        $surat->disposisi()->create([
+            'pengirim_id' => $user->id,
+            'penerima_id' => $staff->id,
+            'tanggal_disposisi' => $tanggalDisposisi,
+            'prioritas' => $prioritas,
+            'batas_waktu' => $rule->hitungBatasWaktu(
+                $tanggalDisposisi,
+                $prioritas
+            ),
+            'instruksi' => $data['catatan'] ?? null,
+            'status' => StatusDisposisi::Terkirim,
+        ]);
+
+        $surat->update([
+            'status' => $data['keputusan'] === 'diterima'
+                ? StatusSurat::Baru
+                : StatusSurat::PerluRevisi,
+        ]);
+
+        $label = $data['keputusan'] === 'diterima'
+            ? 'Diterima'
+            : 'diminta revisi kembali';
+
+        return redirect()
+            ->route('surat.show', $surat)
+            ->with(
+                'status',
+                "Revisi dari {$staff->nama} ditandai \"{$label}\"."
+            );
+    }
+
+    /**
      * Generate PDF lembar disposisi untuk satu record disposisi tertentu,
      * dipakai untuk kebutuhan arsip/cetak.
      */
