@@ -33,6 +33,21 @@
         </a>
     </div>
 
+    {{-- Pintasan ke daftar Surat Masuk / Surat Keluar dari halaman Pesan,
+         karena banyak pesan di sini berisi notifikasi disposisi surat. --}}
+    <div class="mb-5 flex flex-wrap items-center gap-2">
+        <a href="{{ route('surat.index', ['arah' => 'masuk']) }}"
+           class="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
+            Surat Masuk
+        </a>
+        <a href="{{ route('surat.index', ['arah' => 'keluar']) }}"
+           class="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-100">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+            Surat Keluar
+        </a>
+    </div>
+
     <form method="POST" action="{{ route('pesan.hapus') }}"
           x-data="{ selected: [], allIds: {{ $pesan->pluck('id')->map(fn ($id) => (string) $id)->toJson() }} }">
         @csrf

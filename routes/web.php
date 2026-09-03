@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DisposisiController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SuratController;
 use Illuminate\Support\Facades\Route;
 
@@ -31,6 +32,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/surat/sampah/pulihkan', [SuratController::class, 'pulihkan'])->name('surat.pulihkan');
     Route::post('/surat/sampah/hapus-permanen', [SuratController::class, 'hapusPermanen'])->name('surat.hapusPermanen');
 
+    Route::get('/surat/{surat}/edit', [SuratController::class, 'edit'])->name('surat.edit');
+    Route::put('/surat/{surat}', [SuratController::class, 'update'])->name('surat.update');
+
     Route::get('/surat/{surat}', [SuratController::class, 'show'])->name('surat.show');
 
     Route::post('/surat/{surat}/disposisi', [DisposisiController::class, 'store'])->name('disposisi.store');
@@ -51,5 +55,14 @@ Route::middleware('auth')->group(function () {
         Route::post('/sampah/hapus-permanen', [MessageController::class, 'hapusPermanen'])->name('hapusPermanen');
 
         Route::get('/{pesan}', [MessageController::class, 'show'])->name('show');
+    });
+
+    // Menu Profil: diakses lewat dropdown foto profil (sidebar & topbar).
+    Route::prefix('profil')->name('profil.')->group(function () {
+        Route::get('/edit', [ProfileController::class, 'edit'])->name('edit');
+        Route::put('/edit', [ProfileController::class, 'update'])->name('update');
+
+        Route::get('/pengaturan', [ProfileController::class, 'pengaturan'])->name('pengaturan');
+        Route::put('/pengaturan/password', [ProfileController::class, 'updatePassword'])->name('pengaturan.password');
     });
 });

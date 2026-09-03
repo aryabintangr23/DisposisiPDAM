@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Tempat Sampah Pesan')
+@section('title', 'Tempat Sampah')
 
 @section('content')
-    <div class="mt-6 mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div class="mt-6 mb-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <h2 class="text-2xl font-bold text-slate-800">Tempat Sampah Pesan</h2>
+            <h2 class="text-2xl font-bold text-slate-800">Tempat Sampah</h2>
             <p class="mt-1 text-sm text-slate-500">Pesan di sini bisa dipulihkan, atau dihapus permanen.</p>
         </div>
 
@@ -15,6 +15,8 @@
             Kembali ke Pesan
         </a>
     </div>
+
+    @include('sampah._tabs')
 
     <div x-data="{ selected: [], allIds: {{ $pesan->pluck('id')->map(fn ($id) => (string) $id)->toJson() }} }">
         <div class="mb-3 flex items-center justify-between" x-show="selected.length > 0" x-cloak>

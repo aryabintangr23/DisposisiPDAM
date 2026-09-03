@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ArahSurat;
 use App\Enums\Prioritas;
 use App\Enums\StatusDisposisi;
 use App\Http\Requests\StoreSuratRequest;
+use App\Http\Requests\UpdateSuratRequest;
 use App\Models\Disposisi;
 use App\Models\Surat;
 use App\Models\User;
@@ -20,6 +22,26 @@ class SuratController extends Controller
     {
         $user = $request->user();
         $tanggal = $request->query('tanggal');
+
+        // Filter Arah Surat (Surat Masuk / Surat Keluar), dipicu dari link
+        // "Surat Masuk" / "Surat Keluar" di sidebar. Nilai lain diabaikan.
+        $arah = $request->query('arah');
+        if (! in_array($arah, array_column(ArahSurat::cases(), 'value'), true)) {
+            $arah = null;
+        }
+
+        // Filter Prioritas di dashboard, berdasarkan prioritas pada lembar
+        // disposisi yang pernah dibuat untuk surat tersebut.
+        $prioritas = $request->query('prioritas');
+        if (! in_array($prioritas, array_column(Prioritas::cases(), 'value'), true)) {
+            $prioritas = null;
+        }
+
+        // Pencarian bebas: cocokkan ke nomor surat, nomor agenda, perihal,
+        // jenis surat, asal surat, dan tujuan surat sekaligus, supaya
+        // pengguna tidak perlu tahu persis field mana yang harus dicari.
+        $cari = trim((string) $request->query('cari', ''));
+        $cari = $cari !== '' ? $cari : null;
 
         // Staff melihat surat yang ia buat sendiri. Kabag & Direktur melihat
         // surat yang pernah masuk/keluar melalui mereka (sebagai pengirim
@@ -41,6 +63,25 @@ class SuratController extends Controller
             $query->whereDate('tanggal_surat', $tanggal);
         }
 
+        if ($arah) {
+            $query->where('arah_surat', $arah);
+        }
+
+        if ($prioritas) {
+            $query->whereHas('disposisi', fn ($q) => $q->where('prioritas', $prioritas));
+        }
+
+        if ($cari) {
+            $query->where(function ($q) use ($cari) {
+                $q->where('nomor_surat', 'like', "%{$cari}%")
+                    ->orWhere('nomor_agenda', 'like', "%{$cari}%")
+                    ->orWhere('perihal', 'like', "%{$cari}%")
+                    ->orWhere('jenis_surat', 'like', "%{$cari}%")
+                    ->orWhere('surat_dari', 'like', "%{$cari}%")
+                    ->orWhere('tujuan_surat', 'like', "%{$cari}%");
+            });
+        }
+
         $surat = $query->latest()->paginate(15)->withQueryString();
 
         // Tanggal-tanggal yang punya surat (untuk menandai bulatan pada
@@ -56,7 +97,7 @@ class SuratController extends Controller
             ->distinct()
             ->pluck('tgl');
 
-        return view('surat.index', compact('surat', 'tanggal', 'bulan', 'tanggalBersurat'));
+        return view('surat.index', compact('surat', 'tanggal', 'bulan', 'tanggalBersurat', 'arah', 'prioritas', 'cari'));
     }
 
     public function create(Request $request): View
@@ -120,6 +161,55 @@ class SuratController extends Controller
         ]);
 
         return redirect()->route('surat.show', $surat)->with('status', 'Surat dan lembar disposisi berhasil dibuat.');
+    }
+
+    /**
+     * Form edit data surat. Hanya Staff yang membuat surat itu sendiri yang
+     * boleh mengedit, dan hanya selama status surat masih "Baru" (belum ada
+     * keputusan Diterima/Ditolak/Perlu Revisi dari Direktur/Kabag), supaya
+     * data yang sudah didisposisikan tidak berubah tanpa jejak.
+     */
+    public function edit(Request $request, Surat $surat): View
+    {
+        $this->authorizeEdit($request, $surat);
+
+        $surat->load('lampiran');
+
+        return view('surat.edit', compact('surat'));
+    }
+
+    public function update(UpdateSuratRequest $request, Surat $surat): RedirectResponse
+    {
+        $this->authorizeEdit($request, $surat);
+
+        $data = $request->validated();
+
+        $surat->update([
+            'arah_surat' => $data['arah_surat'],
+            'jenis_surat' => $data['jenis_surat'],
+            'nomor_surat' => $data['nomor_surat'],
+            'nomor_agenda' => $data['nomor_agenda'] ?? null,
+            'tanggal_surat' => $data['tanggal_surat'],
+            'tanggal_diterima' => $data['tanggal_diterima'] ?? null,
+            'surat_dari' => $data['surat_dari'] ?? null,
+            'tujuan_surat' => $data['tujuan_surat'] ?? null,
+            'perihal' => $data['perihal'],
+        ]);
+
+        if ($request->hasFile('lampiran')) {
+            foreach ($request->file('lampiran') as $file) {
+                $path = $file->store('lampiran', 'public');
+
+                $surat->lampiran()->create([
+                    'nama_file' => $file->getClientOriginalName(),
+                    'path_file' => $path,
+                    'tipe_file' => $file->getClientMimeType(),
+                    'ukuran_file' => $file->getSize(),
+                ]);
+            }
+        }
+
+        return redirect()->route('surat.show', $surat)->with('status', 'Data surat berhasil diperbarui.');
     }
 
     public function show(Request $request, Surat $surat): View
@@ -220,6 +310,15 @@ class SuratController extends Controller
     private function authorizeStaffOnly(Request $request): void
     {
         abort_unless($request->user()->isStaff(), 403, 'Hanya Staff Umum yang boleh menginput surat baru.');
+    }
+
+    private function authorizeEdit(Request $request, Surat $surat): void
+    {
+        $user = $request->user();
+
+        abort_unless($user->isStaff() && $surat->created_by === $user->id, 403, 'Anda tidak memiliki akses untuk mengedit surat ini.');
+
+        abort_if($surat->status->value !== 'baru', 403, 'Surat yang sudah diputuskan (diterima/ditolak/perlu revisi) tidak bisa diedit lagi.');
     }
 
     private function authorizeAkses(Request $request, Surat $surat): void

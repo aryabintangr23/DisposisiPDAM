@@ -16,14 +16,18 @@
         @csrf
 
         {{-- Section: Data Surat --}}
-        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        {{-- x-data di sini mengatur tampil/sembunyinya field "Surat Dari" &
+             "Tujuan Surat" mengikuti pilihan Arah Surat: kalau surat masuk,
+             field "Tujuan Surat" tidak perlu diisi (disembunyikan); kalau
+             surat keluar, field "Surat Dari" yang disembunyikan. --}}
+        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm" x-data="{ arahSurat: '{{ old('arah_surat', 'masuk') }}' }">
             <h3 class="mb-1 text-sm font-semibold uppercase tracking-wide text-brand-700">Data Surat</h3>
             <p class="mb-5 text-sm text-slate-500">Informasi dasar mengenai surat yang diterima/dikirim.</p>
 
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Arah Surat</label>
-                    <select name="arah_surat" required
+                    <select name="arah_surat" required x-model="arahSurat"
                         class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                         <option value="masuk">Surat Masuk</option>
                         <option value="keluar">Surat Keluar</option>
@@ -61,15 +65,15 @@
                         class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                 </div>
 
-                <div>
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Surat Dari <span class="font-normal text-slate-400">(untuk surat masuk)</span></label>
-                    <input type="text" name="surat_dari"
+                <div x-show="arahSurat === 'masuk'" x-cloak>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Surat Dari</label>
+                    <input type="text" name="surat_dari" :required="arahSurat === 'masuk'"
                         class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                 </div>
 
-                <div>
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Tujuan Surat <span class="font-normal text-slate-400">(untuk surat keluar)</span></label>
-                    <input type="text" name="tujuan_surat"
+                <div x-show="arahSurat === 'keluar'" x-cloak>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Tujuan Surat</label>
+                    <input type="text" name="tujuan_surat" :required="arahSurat === 'keluar'"
                         class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                 </div>
             </div>

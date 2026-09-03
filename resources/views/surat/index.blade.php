@@ -5,11 +5,60 @@
 @section('content')
     <div class="mt-6 mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <h2 class="text-2xl font-bold text-slate-800">Daftar Surat</h2>
+            <h2 class="text-2xl font-bold text-slate-800">
+                @if ($arah === 'masuk')
+                    Surat Masuk
+                @elseif ($arah === 'keluar')
+                    Surat Keluar
+                @else
+                    Daftar Surat
+                @endif
+            </h2>
             <p class="mt-1 text-sm text-slate-500">Kelola surat masuk &amp; keluar beserta status disposisinya.</p>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+            {{-- Search bar: cari surat berdasarkan nomor, perihal, jenis, asal/tujuan --}}
+            <form method="GET" action="{{ route('surat.index') }}" class="relative">
+                @if ($arah)
+                    <input type="hidden" name="arah" value="{{ $arah }}">
+                @endif
+                @if ($tanggal)
+                    <input type="hidden" name="tanggal" value="{{ $tanggal }}">
+                @endif
+                @if ($prioritas)
+                    <input type="hidden" name="prioritas" value="{{ $prioritas }}">
+                @endif
+                <input type="hidden" name="bulan" value="{{ $bulan }}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+                </svg>
+                <input type="search" name="cari" value="{{ $cari }}" required
+                       placeholder="Cari nomor, perihal, asal/tujuan surat…"
+                       class="w-64 rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm text-slate-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 sm:w-80">
+            </form>
+
+            {{-- Filter by prioritas, berlaku untuk semua role --}}
+            <form method="GET" action="{{ route('surat.index') }}">
+                @if ($arah)
+                    <input type="hidden" name="arah" value="{{ $arah }}">
+                @endif
+                @if ($tanggal)
+                    <input type="hidden" name="tanggal" value="{{ $tanggal }}">
+                @endif
+                @if ($cari)
+                    <input type="hidden" name="cari" value="{{ $cari }}">
+                @endif
+                <input type="hidden" name="bulan" value="{{ $bulan }}">
+                <select name="prioritas" onchange="this.form.submit()"
+                    class="rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <option value="">Semua Prioritas</option>
+                    @foreach (\App\Enums\Prioritas::cases() as $p)
+                        <option value="{{ $p->value }}" {{ $prioritas === $p->value ? 'selected' : '' }}>{{ $p->label() }}</option>
+                    @endforeach
+                </select>
+            </form>
+
             @if (auth()->user()->isStaff())
                 <a href="{{ route('surat.create') }}"
                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800">
@@ -27,15 +76,26 @@
     {{-- ============ KOLOM UTAMA: DAFTAR SURAT ============ --}}
     <div class="lg:col-span-3">
 
-    @if ($tanggal)
-        <div class="mb-4">
-            <a href="{{ route('surat.index') }}"
-               class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100">
-                {{ \Carbon\Carbon::parse($tanggal)->translatedFormat('d F Y') }}
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </a>
+    @if ($tanggal || $cari)
+        <div class="mb-4 flex flex-wrap gap-2">
+            @if ($tanggal)
+                <a href="{{ route('surat.index', array_filter(['arah' => $arah, 'prioritas' => $prioritas, 'cari' => $cari])) }}"
+                   class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100">
+                    {{ \Carbon\Carbon::parse($tanggal)->translatedFormat('d F Y') }}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </a>
+            @endif
+            @if ($cari)
+                <a href="{{ route('surat.index', array_filter(['arah' => $arah, 'prioritas' => $prioritas, 'tanggal' => $tanggal])) }}"
+                   class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100">
+                    Pencarian: "{{ $cari }}"
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </a>
+            @endif
         </div>
     @endif
 
@@ -148,7 +208,9 @@
                                     <div class="flex flex-col items-center gap-2">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                         <p class="text-sm">
-                                            @if ($tanggal)
+                                            @if ($cari)
+                                                Tidak ada surat yang cocok dengan pencarian "{{ $cari }}".
+                                            @elseif ($tanggal)
                                                 Tidak ada surat pada tanggal ini.
                                             @else
                                                 Belum ada surat.
@@ -180,18 +242,20 @@
             $mulaiGrid = $bulanAwal->copy()->startOfWeek(\Carbon\Carbon::SUNDAY);
             $selesaiGrid = $bulanAwal->copy()->endOfMonth()->endOfWeek(\Carbon\Carbon::SATURDAY);
             $hariIni = now()->format('Y-m-d');
+            // Filter aktif (arah, prioritas & pencarian) dipertahankan saat navigasi kalender.
+            $filterAktif = array_filter(['arah' => $arah, 'prioritas' => $prioritas, 'cari' => $cari]);
         @endphp
 
         <div class="sticky top-20 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div class="mb-3 flex items-center justify-between">
-                <a href="{{ route('surat.index', array_filter(['bulan' => $bulanSebelumnya])) }}"
+                <a href="{{ route('surat.index', array_filter(['bulan' => $bulanSebelumnya]) + $filterAktif) }}"
                    class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
                     </svg>
                 </a>
                 <p class="text-sm font-semibold text-slate-700">{{ $bulanAwal->translatedFormat('F Y') }}</p>
-                <a href="{{ route('surat.index', array_filter(['bulan' => $bulanSesudahnya])) }}"
+                <a href="{{ route('surat.index', array_filter(['bulan' => $bulanSesudahnya]) + $filterAktif) }}"
                    class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -213,7 +277,7 @@
                         $terpilih = $tanggal === $iso;
                         $hariBerjalan = $iso === $hariIni;
                     @endphp
-                    <a href="{{ route('surat.index', array_filter(['bulan' => $bulan, 'tanggal' => $terpilih ? null : $iso])) }}"
+                    <a href="{{ route('surat.index', array_filter(['bulan' => $bulan, 'tanggal' => $terpilih ? null : $iso]) + $filterAktif) }}"
                        class="relative flex h-8 items-center justify-center rounded-lg text-xs transition
                               {{ ! $dalamBulanIni ? 'text-slate-300' : 'text-slate-600 hover:bg-slate-100' }}
                               {{ $terpilih ? 'bg-brand-700 text-white hover:bg-brand-700' : '' }}
