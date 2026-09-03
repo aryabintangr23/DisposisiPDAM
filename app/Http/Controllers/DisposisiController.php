@@ -14,7 +14,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Http\Response;
 
 class DisposisiController extends Controller
 {
@@ -109,7 +109,7 @@ class DisposisiController extends Controller
      * Generate PDF lembar disposisi untuk satu record disposisi tertentu,
      * dipakai untuk kebutuhan arsip/cetak.
      */
-    public function cetak(Request $request, Surat $surat, Disposisi $disposisi): StreamedResponse
+    public function cetak(Request $request, Surat $surat, Disposisi $disposisi): Response
     {
         abort_unless($disposisi->surat_id === $surat->id, 404);
 
