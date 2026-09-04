@@ -5,6 +5,7 @@ use App\Http\Controllers\DisposisiController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SuratController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -66,5 +67,15 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/pengaturan', [ProfileController::class, 'pengaturan'])->name('pengaturan');
         Route::put('/pengaturan/password', [ProfileController::class, 'updatePassword'])->name('pengaturan.password');
+    });
+
+    // Menu Admin: kelola user. Hanya user berperan Admin.
+    Route::prefix('pengguna')->name('pengguna.')->middleware('admin')->group(function () {
+        Route::get('/', [UserController::class, 'index'])->name('index');
+        Route::get('/create', [UserController::class, 'create'])->name('create');
+        Route::post('/', [UserController::class, 'store'])->name('store');
+        Route::get('/{user}/edit', [UserController::class, 'edit'])->name('edit');
+        Route::put('/{user}', [UserController::class, 'update'])->name('update');
+        Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
     });
 });

@@ -82,4 +82,9 @@ class User extends Authenticatable
     {
         return $this->role?->nama_role === 'direktur';
     }
+
+    public function isAdmin(): bool
+    {
+        return $this->role?->nama_role === 'admin';
+    }
 }
