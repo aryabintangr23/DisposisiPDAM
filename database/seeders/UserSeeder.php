@@ -17,6 +17,7 @@ class UserSeeder extends Seeder
             ['nama' => 'Staff Umum', 'email' => 'staff@tirtagemilang.test', 'role' => 'staff_umum'],
             ['nama' => 'Kabag Umum', 'email' => 'kabag@tirtagemilang.test', 'role' => 'kabag_umum'],
             ['nama' => 'Direktur', 'email' => 'direktur@tirtagemilang.test', 'role' => 'direktur'],
+            ['nama' => 'Admin', 'email' => 'admin@tirtagemilang.test', 'role' => 'admin'],
         ];
 
         foreach ($daftar as $item) {
