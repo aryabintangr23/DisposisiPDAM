@@ -46,13 +46,18 @@
             && $surat->created_by === auth()->id()
             && $surat->status->value === 'perlu_revisi';
 
-        // Kabag sedang menunggu review atas revisi yang baru dikirim balik
-        // oleh Staff (disposisi terakhir: Staff -> Kabag ini, status masih
-        // "Perlu Revisi").
+        // Kabag sedang menunggu review atas surat dari Staff — baik surat
+        // baru yang pertama kali masuk (status "Baru") maupun revisi yang
+        // baru dikirim balik setelah diminta perbaikan (status "Perlu
+        // Revisi"). Keduanya pakai kartu & tombol Diterima/Revisi yang sama
+        // supaya Kabag tidak perlu membuka form "Kirim Disposisi Baru".
         $bisaReviewRevisi = auth()->user()->isKabag()
             && $dispoTerakhir
             && $dispoTerakhir->penerima_id === auth()->id()
-            && $surat->status->value === 'perlu_revisi';
+            && $dispoTerakhir->pengirim?->isStaff()
+            && in_array($surat->status->value, ['baru', 'perlu_revisi'], true);
+
+        $iniRevisiUlang = $surat->status->value === 'perlu_revisi';
     @endphp
 
     @if ($perluRevisiUntukStaff)
@@ -77,11 +82,20 @@
 
     @if ($bisaReviewRevisi)
         <div class="mb-6 rounded-xl border border-brand-200 bg-brand-50 p-5">
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-brand-800">Review Revisi</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-brand-800">
+                {{ $iniRevisiUlang ? 'Review Revisi' : 'Surat Masuk — Perlu Review' }}
+            </h3>
             <p class="mt-1 text-sm text-brand-800/80">
-                {{ $dispoTerakhir->pengirim->nama }} (Staff) sudah mengirim kembali surat yang direvisi.
-                Periksa perubahannya, lalu tandai <strong>Diterima</strong> kalau sudah sesuai, atau
-                <strong>Minta Revisi Lagi</strong> kalau masih belum.
+                @if ($iniRevisiUlang)
+                    {{ $dispoTerakhir->pengirim->nama }} (Staff) sudah mengirim kembali surat yang direvisi.
+                    Periksa perubahannya, lalu tandai <strong>Diterima</strong> kalau sudah sesuai, atau
+                    <strong>Minta Revisi Lagi</strong> kalau masih belum.
+                @else
+                    {{ $dispoTerakhir->pengirim->nama }} (Staff) mengirimkan surat ini kepada Anda.
+                    Tandai <strong>Diterima</strong> kalau surat sudah sesuai — setelah itu Anda tinggal
+                    meneruskannya ke Direktur lewat form di bawah — atau <strong>Minta Revisi</strong>
+                    kalau masih perlu diperbaiki Staff.
+                @endif
             </p>
             <form method="POST" action="{{ route('disposisi.reviewRevisi', $surat) }}" class="mt-4 space-y-3">
                 @csrf
@@ -96,7 +110,7 @@
                     <button type="submit" name="keputusan" value="revisi"
                         class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                        Minta Revisi Lagi
+                        {{ $iniRevisiUlang ? 'Minta Revisi Lagi' : 'Minta Revisi' }}
                     </button>
                 </div>
             </form>
@@ -327,7 +341,18 @@
             </div>
             @endunless
 
-            @if ($penerimaOptions->isNotEmpty())
+            {{--
+                Selama Kabag sedang menunggu keputusan Diterima/Revisi atas
+                surat dari Staff (kartu "Review Revisi" / "Surat Masuk —
+                Perlu Review" di atas), form "Kirim Disposisi Baru" ini
+                disembunyikan supaya tidak ada dua cara berbeda untuk
+                melakukan hal yang sama. Begitu Kabag menandai "Diterima",
+                disposisi terakhir berubah jadi Kabag -> Staff sehingga
+                $bisaReviewRevisi otomatis bernilai false dan form ini
+                muncul kembali — tinggal pilih Direktur untuk meneruskan
+                surat.
+            --}}
+            @if ($penerimaOptions->isNotEmpty() && ! $bisaReviewRevisi)
                 @php
                     // Staff yang sedang mengirim balik surat berstatus "Perlu
                     // Revisi" ke Kabag: form & tombolnya sama persis, cuma
@@ -339,16 +364,15 @@
                     <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-brand-700">
                         {{ $isKirimRevisi ? 'Kirim Revisi' : 'Kirim Disposisi Baru' }}
                     </h3>
-                    <form method="POST" action="{{ route('disposisi.store', $surat) }}" class="space-y-4" x-data="{ penerimaRole: '' }">
+                    <form method="POST" action="{{ route('disposisi.store', $surat) }}" class="space-y-4">
                         @csrf
                         <div>
                             <label class="mb-1.5 block text-sm font-medium text-slate-700">Kirim ke</label>
                             <select name="penerima_id" required
-                                x-on:change="penerimaRole = $event.target.options[$event.target.selectedIndex].dataset.role"
                                 class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
-                                <option value="" data-role="" disabled selected>-- Pilih penerima --</option>
+                                <option value="" disabled selected>-- Pilih penerima --</option>
                                 @foreach ($penerimaOptions as $opt)
-                                    <option value="{{ $opt->id }}" data-role="{{ $opt->role->nama_role }}">{{ $opt->nama }} ({{ ucwords(str_replace('_',' ',$opt->role->nama_role)) }})</option>
+                                    <option value="{{ $opt->id }}">{{ $opt->nama }} ({{ ucwords(str_replace('_',' ',$opt->role->nama_role)) }})</option>
                                 @endforeach
                             </select>
                         </div>
@@ -374,33 +398,14 @@
                             selalu mendapat $penerimaOptions kosong), jadi tidak
                             perlu penjelasan khusus untuk Direktur di sini lagi.
                             Keputusan Diterima/Ditolak dilakukan lewat kartu
-                            "Keputusan Surat" di bagian atas halaman.
+                            "Keputusan Surat" di bagian atas halaman. Keputusan
+                            Diterima/Revisi milik Kabag juga sudah dipindahkan ke
+                            kartu "Review Revisi" / "Surat Masuk — Perlu Review" di
+                            atas, jadi form ini sekarang murni untuk mengirim
+                            disposisi ke tujuan berikutnya (mis. Kabag -> Direktur).
                         --}}
 
-                        @if (auth()->user()->isKabag())
-                            {{--
-                                Kabag -> Staff: bukan checkbox lagi, tapi dua
-                                tombol terpisah. "Approve" mengirim disposisi
-                                seperti biasa (tanpa mengubah status surat),
-                                "Revisi" mengirim disposisi sekaligus menandai
-                                status surat sebagai "Perlu Revisi".
-                            --}}
-                            <div x-show="penerimaRole === 'staff_umum'" x-cloak class="flex flex-col gap-3 sm:flex-row">
-                                <button type="submit" name="keputusan_surat" value=""
-                                    class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    Approve
-                                </button>
-                                <button type="submit" name="keputusan_surat" value="perlu_revisi"
-                                    class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                    Revisi
-                                </button>
-                            </div>
-                        @endif
-
                         <button type="submit"
-                            @if (auth()->user()->isKabag()) x-show="penerimaRole !== 'staff_umum'" @endif
                             class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                             {{ $isKirimRevisi ? 'Kirim Revisi' : 'Kirim Disposisi' }}

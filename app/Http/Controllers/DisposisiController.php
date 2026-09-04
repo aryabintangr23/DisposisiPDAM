@@ -194,17 +194,26 @@ class DisposisiController extends Controller
     }
 
     /**
-     * Tombol "Diterima" / "Minta Revisi Lagi" khusus Kabag di halaman detail
-     * surat, dipakai untuk mereview revisi yang baru dikirim balik oleh
-     * Staff (status Surat masih "Perlu Revisi", dan disposisi terakhir
-     * adalah Staff -> Kabag ini).
+     * Tombol "Diterima" / "Minta Revisi (Lagi)" khusus Kabag di halaman
+     * detail surat — satu aksi sederhana yang dipakai untuk DUA situasi
+     * sekaligus, supaya Kabag tidak perlu membuka form "Kirim Disposisi
+     * Baru" dan memilih-milih penerima hanya untuk memutuskan surat dari
+     * Staff:
      *
-     * - "Diterima": revisi sudah sesuai, status Surat dikembalikan ke
-     *   "Baru" (TIDAK lagi "Perlu Revisi") supaya suratnya bisa lanjut ke
-     *   alur berikutnya (mis. diteruskan ke Direktur lewat form "Kirim
-     *   Disposisi Baru" seperti biasa).
-     * - "Revisi": masih belum sesuai, status Surat tetap/kembali "Perlu
-     *   Revisi" dan dikirim ulang ke Staff yang sama.
+     * 1. Review pertama kali atas surat baru yang dikirim Staff -> Kabag
+     *    (status Surat masih "Baru").
+     * 2. Review revisi yang dikirim ulang oleh Staff setelah diminta
+     *    perbaikan sebelumnya (status Surat "Perlu Revisi").
+     *
+     * Berlaku selama disposisi terakhir surat ini mengarah ke Kabag yang
+     * sedang login DAN pengirimnya adalah Staff (bukan Direktur, supaya
+     * tidak tertukar dengan alur keputusan Direktur -> Kabag).
+     *
+     * - "Diterima": surat sudah sesuai, status Surat menjadi/tetap "Baru"
+     *   supaya siap diteruskan ke Direktur lewat form "Kirim Disposisi
+     *   Baru" seperti biasa.
+     * - "Revisi": masih belum sesuai, status Surat menjadi "Perlu Revisi"
+     *   dan dikirim ulang ke Staff yang sama.
      *
      * Sama seperti keputusan(), aksi ini otomatis membuat satu disposisi
      * balasan Kabag -> Staff supaya ada jejaknya di Riwayat Disposisi.
@@ -219,7 +228,7 @@ class DisposisiController extends Controller
         abort_unless(
             $user->isKabag(),
             403,
-            'Hanya Kabag yang boleh menandai revisi Diterima/Revisi.'
+            'Hanya Kabag yang boleh menandai surat Diterima/Revisi.'
         );
 
         $data = $request->validate([
@@ -238,9 +247,10 @@ class DisposisiController extends Controller
         abort_unless(
             $dispoTerakhir
                 && $dispoTerakhir->penerima_id === $user->id
-                && $surat->status->value === 'perlu_revisi',
+                && $dispoTerakhir->pengirim?->isStaff()
+                && in_array($surat->status->value, ['baru', 'perlu_revisi'], true),
             403,
-            'Surat ini tidak sedang menunggu review revisi dari Anda.'
+            'Surat ini tidak sedang menunggu review dari Anda.'
         );
 
         $staff = $dispoTerakhir->pengirim;
@@ -275,13 +285,13 @@ class DisposisiController extends Controller
 
         $label = $data['keputusan'] === 'diterima'
             ? 'Diterima'
-            : 'diminta revisi kembali';
+            : 'diminta revisi';
 
         return redirect()
             ->route('surat.show', $surat)
             ->with(
                 'status',
-                "Revisi dari {$staff->nama} ditandai \"{$label}\"."
+                "Surat dari {$staff->nama} ditandai \"{$label}\"."
             );
     }
 

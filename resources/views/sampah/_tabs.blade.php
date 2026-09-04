@@ -4,7 +4,7 @@
     halaman "Sampah" dengan dua tab, bukan dua menu terpisah di sidebar.
 --}}
 <div class="mb-6 flex gap-1 border-b border-slate-200">
-    @if (auth()->user()->isStaff())
+    @if (auth()->user()->isStaff() || auth()->user()->isKabag())
         <a href="{{ route('surat.sampah') }}"
            class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition
                   {{ request()->routeIs('surat.sampah') ? 'border-brand-700 text-brand-700' : 'border-transparent text-slate-500 hover:text-slate-700' }}">

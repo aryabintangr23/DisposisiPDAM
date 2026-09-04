@@ -46,16 +46,7 @@ class SuratController extends Controller
         // Staff melihat surat yang ia buat sendiri. Kabag & Direktur melihat
         // surat yang pernah masuk/keluar melalui mereka (sebagai pengirim
         // atau penerima disposisi).
-        if ($user->isStaff()) {
-            $scope = fn () => Surat::where('created_by', $user->id);
-        } else {
-            $suratIds = Disposisi::where('penerima_id', $user->id)
-                ->orWhere('pengirim_id', $user->id)
-                ->pluck('surat_id')
-                ->unique();
-
-            $scope = fn () => Surat::whereIn('id', $suratIds);
-        }
+        $scope = fn () => $this->scopeSuratUntukUser($user);
 
         $query = $scope()->with('disposisi');
 
@@ -227,18 +218,20 @@ class SuratController extends Controller
 
     /**
      * Pindahkan surat yang dipilih (checkbox) ke tempat sampah (soft delete).
-     * Dibatasi hanya untuk Staff yang membuat surat itu sendiri.
+     * Staff hanya bisa menghapus surat yang ia buat sendiri; Kabag bisa
+     * menghapus surat yang tampil di dashboard-nya (surat yang pernah
+     * didisposisikan kepada/darinya), sesuai cakupan scopeSuratUntukUser().
      */
     public function hapus(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->isStaff(), 403, 'Hanya Staff yang boleh memindahkan surat ke tempat sampah.');
+        $this->authorizeHapusSurat($request);
 
         $data = $request->validate([
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'exists:surat,id'],
         ]);
 
-        $query = Surat::whereIn('id', $data['ids'])->where('created_by', $request->user()->id);
+        $query = $this->scopeSuratUntukUser($request->user())->whereIn('id', $data['ids']);
         $jumlah = $query->count();
         $query->delete();
 
@@ -246,14 +239,15 @@ class SuratController extends Controller
     }
 
     /**
-     * Daftar surat yang ada di tempat sampah.
+     * Daftar surat yang ada di tempat sampah (dibatasi ke cakupan surat
+     * milik/terkait user yang sama seperti dashboard-nya).
      */
     public function sampah(Request $request): View
     {
-        abort_unless($request->user()->isStaff(), 403, 'Hanya Staff yang memiliki akses ke tempat sampah surat.');
+        $this->authorizeHapusSurat($request);
 
-        $surat = Surat::onlyTrashed()
-            ->where('created_by', $request->user()->id)
+        $surat = $this->scopeSuratUntukUser($request->user())
+            ->onlyTrashed()
             ->latest('deleted_at')
             ->paginate(15);
 
@@ -265,14 +259,14 @@ class SuratController extends Controller
      */
     public function pulihkan(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->isStaff(), 403, 'Hanya Staff yang boleh memulihkan surat.');
+        $this->authorizeHapusSurat($request);
 
         $data = $request->validate([
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer'],
         ]);
 
-        $query = Surat::onlyTrashed()->whereIn('id', $data['ids'])->where('created_by', $request->user()->id);
+        $query = $this->scopeSuratUntukUser($request->user())->onlyTrashed()->whereIn('id', $data['ids']);
         $jumlah = $query->count();
         $query->restore();
 
@@ -286,16 +280,16 @@ class SuratController extends Controller
      */
     public function hapusPermanen(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->isStaff(), 403, 'Hanya Staff yang boleh menghapus surat secara permanen.');
+        $this->authorizeHapusSurat($request);
 
         $data = $request->validate([
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer'],
         ]);
 
-        $suratList = Surat::onlyTrashed()
+        $suratList = $this->scopeSuratUntukUser($request->user())
+            ->onlyTrashed()
             ->whereIn('id', $data['ids'])
-            ->where('created_by', $request->user()->id)
             ->with('lampiran')
             ->get();
 
@@ -312,6 +306,45 @@ class SuratController extends Controller
     private function authorizeStaffOnly(Request $request): void
     {
         abort_unless($request->user()->isStaff(), 403, 'Hanya Staff Umum yang boleh menginput surat baru.');
+    }
+
+    /**
+     * Aksi kelola tempat sampah surat (pindah ke sampah, lihat sampah,
+     * pulihkan, hapus permanen) dibatasi untuk Staff & Kabag. Direktur tidak
+     * diberi akses ini karena Direktur tidak pernah menjadi "pemilik" surat.
+     */
+    private function authorizeHapusSurat(Request $request): void
+    {
+        $user = $request->user();
+
+        abort_unless(
+            $user->isStaff() || $user->isKabag(),
+            403,
+            'Anda tidak memiliki akses untuk mengelola tempat sampah surat.'
+        );
+    }
+
+    /**
+     * Cakupan surat yang boleh dilihat/dikelola oleh $user, dipakai bersama
+     * oleh index() (dashboard) dan aksi tempat sampah, supaya surat yang
+     * dihapus/dipulihkan selalu konsisten dengan surat yang tampil di
+     * dashboard-nya masing-masing:
+     * - Staff: surat yang ia buat sendiri.
+     * - Kabag & Direktur: surat yang pernah masuk/keluar melalui mereka
+     *   (sebagai pengirim atau penerima disposisi).
+     */
+    private function scopeSuratUntukUser(User $user)
+    {
+        if ($user->isStaff()) {
+            return Surat::where('created_by', $user->id);
+        }
+
+        $suratIds = Disposisi::where('penerima_id', $user->id)
+            ->orWhere('pengirim_id', $user->id)
+            ->pluck('surat_id')
+            ->unique();
+
+        return Surat::whereIn('id', $suratIds);
     }
 
     private function authorizeEdit(Request $request, Surat $surat): void

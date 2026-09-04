@@ -99,11 +99,18 @@
         </div>
     @endif
 
+    @php
+        // Staff & Kabag boleh memilih + menghapus surat dari dashboard-nya
+        // masing-masing (Staff: surat yang ia buat; Kabag: surat yang tampil
+        // di dashboard-nya). Direktur tidak diberi akses hapus.
+        $bisaHapusSurat = auth()->user()->isStaff() || auth()->user()->isKabag();
+    @endphp
+
     <form method="POST" action="{{ route('surat.hapus') }}"
           x-data="{ selected: [], allIds: {{ $surat->pluck('id')->map(fn ($id) => (string) $id)->toJson() }} }">
         @csrf
 
-        @if (auth()->user()->isStaff())
+        @if ($bisaHapusSurat)
             <div class="mb-3 flex items-center justify-between" x-show="selected.length > 0" x-cloak>
                 <p class="text-sm text-slate-500"><span x-text="selected.length"></span> surat dipilih</p>
                 <button type="submit"
@@ -122,7 +129,7 @@
                 <table class="min-w-full divide-y divide-slate-200 text-sm">
                     <thead class="bg-slate-50">
                         <tr>
-                            @if (auth()->user()->isStaff())
+                            @if ($bisaHapusSurat)
                                 <th class="w-10 px-5 py-3">
                                     <input type="checkbox"
                                            class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
@@ -152,7 +159,7 @@
                                 };
                             @endphp
                             <tr class="transition hover:bg-slate-50">
-                                @if (auth()->user()->isStaff())
+                                @if ($bisaHapusSurat)
                                     <td class="px-5 py-3.5">
                                         <input type="checkbox" name="ids[]" value="{{ $item->id }}" x-model="selected"
                                                class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
@@ -204,7 +211,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="px-5 py-12 text-center text-slate-400">
+                                <td colspan="{{ $bisaHapusSurat ? 8 : 7 }}" class="px-5 py-12 text-center text-slate-400">
                                     <div class="flex flex-col items-center gap-2">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                         <p class="text-sm">
