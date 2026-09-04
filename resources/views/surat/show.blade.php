@@ -342,17 +342,24 @@
             @endunless
 
             {{--
-                Selama Kabag sedang menunggu keputusan Diterima/Revisi atas
-                surat dari Staff (kartu "Review Revisi" / "Surat Masuk —
-                Perlu Review" di atas), form "Kirim Disposisi Baru" ini
-                disembunyikan supaya tidak ada dua cara berbeda untuk
-                melakukan hal yang sama. Begitu Kabag menandai "Diterima",
-                disposisi terakhir berubah jadi Kabag -> Staff sehingga
-                $bisaReviewRevisi otomatis bernilai false dan form ini
-                muncul kembali — tinggal pilih Direktur untuk meneruskan
-                surat.
+                Form "Kirim Disposisi Baru" disembunyikan kalau:
+                - Kabag sedang menunggu keputusan Diterima/Revisi atas surat
+                  dari Staff ($bisaReviewRevisi — lihat kartu "Review Revisi"
+                  / "Surat Masuk — Perlu Review" di atas), supaya tidak ada
+                  dua cara berbeda untuk melakukan hal yang sama. Begitu
+                  Kabag menandai "Diterima", disposisi terakhir berubah jadi
+                  Kabag -> Staff sehingga $bisaReviewRevisi otomatis bernilai
+                  false dan form ini muncul kembali — tinggal pilih Direktur
+                  untuk meneruskan surat.
+                - Surat sudah final, yaitu berstatus "Diterima" (ACC oleh
+                  Direktur) atau "Ditolak" — sudah tidak ada lagi disposisi
+                  lanjutan yang perlu dikirim, jadi form ini tidak relevan
+                  lagi untuk Staff maupun Kabag.
             --}}
-            @if ($penerimaOptions->isNotEmpty() && ! $bisaReviewRevisi)
+            @php
+                $suratSudahFinal = in_array($surat->status->value, ['diterima', 'ditolak'], true);
+            @endphp
+            @if ($penerimaOptions->isNotEmpty() && ! $bisaReviewRevisi && ! $suratSudahFinal)
                 @php
                     // Staff yang sedang mengirim balik surat berstatus "Perlu
                     // Revisi" ke Kabag: form & tombolnya sama persis, cuma

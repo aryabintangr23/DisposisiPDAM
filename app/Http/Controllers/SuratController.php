@@ -45,8 +45,24 @@ class SuratController extends Controller
 
         // Staff melihat surat yang ia buat sendiri. Kabag & Direktur melihat
         // surat yang pernah masuk/keluar melalui mereka (sebagai pengirim
+
         // atau penerima disposisi).
         $scope = fn () => $this->scopeSuratUntukUser($user);
+
+        // atau penerima disposisi). Admin: role manajemen — melihat semua surat.
+        if ($user->isStaff()) {
+            $scope = fn () => Surat::where('created_by', $user->id);
+        } elseif ($user->isAdmin()) {
+            $scope = fn () => Surat::query();
+        } else {
+            $suratIds = Disposisi::where('penerima_id', $user->id)
+                ->orWhere('pengirim_id', $user->id)
+                ->pluck('surat_id')
+                ->unique();
+
+            $scope = fn () => Surat::whereIn('id', $suratIds);
+        }
+
 
         $query = $scope()->with('disposisi');
 
@@ -360,7 +376,8 @@ class SuratController extends Controller
     {
         $user = $request->user();
 
-        $terlibat = $surat->created_by === $user->id
+        $terlibat = $user->isAdmin()
+            || $surat->created_by === $user->id
             || $surat->disposisi()
                 ->where('pengirim_id', $user->id)
                 ->orWhere('penerima_id', $user->id)
@@ -378,7 +395,9 @@ class SuratController extends Controller
             // Terima/Tolak sudah otomatis mengirim disposisi balasan ke
             // Kabag (lihat DisposisiController::keputusan), jadi form
             // "Kirim Disposisi Baru" tidak perlu ditampilkan untuk Direktur.
-            $user->isDirektur() => [],
+            // Admin juga di luar alur disposisi (role manajemen), jadi
+            // tidak punya pilihan penerima.
+            $user->isDirektur() || $user->isAdmin() => [],
             default => [],
         };
 
