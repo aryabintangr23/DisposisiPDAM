@@ -64,7 +64,14 @@ class User extends Authenticatable
 
     public function jumlahPesanBelumDibaca(): int
     {
-        return $this->pesanMasuk()->where('is_read', false)->count();
+        // Pesan yang sudah dipindahkan ke Tempat Sampah oleh penerima tidak
+        // lagi dihitung sebagai belum dibaca, walau is_read masih false —
+        // supaya notif angka di navbar berkurang begitu pesan dihapus, tanpa
+        // harus menandainya "dibaca" terlebih dulu.
+        return $this->pesanMasuk()
+            ->where('is_read', false)
+            ->whereNull('deleted_by_receiver_at')
+            ->count();
     }
 
     // Helper agar controller/policy tidak hardcode string role berulang kali.

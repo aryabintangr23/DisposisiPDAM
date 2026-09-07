@@ -23,7 +23,7 @@
                 {{ $surat->status->label() }}
             </span>
 
-            @if (auth()->user()->isStaff() && $surat->created_by === auth()->id() && in_array($surat->status->value, ['baru', 'perlu_revisi'], true))
+            @if (auth()->user()->isStaff() && auth()->user()->sameRoleAs($surat->pembuat) && in_array($surat->status->value, ['baru', 'perlu_revisi'], true))
                 <a href="{{ route('surat.edit', $surat) }}"
                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -38,22 +38,17 @@
         $dispoTerakhir = $surat->disposisiTerakhir();
         $bisaMemutuskan = auth()->user()->isDirektur()
             && $dispoTerakhir
-            && $dispoTerakhir->penerima_id === auth()->id()
+            && auth()->user()->sameRoleAs($dispoTerakhir->penerima)
             && $surat->status->value === 'baru';
 
         // Staff pembuat surat ini sedang diminta revisi oleh Kabag.
         $perluRevisiUntukStaff = auth()->user()->isStaff()
-            && $surat->created_by === auth()->id()
+            && auth()->user()->sameRoleAs($surat->pembuat)
             && $surat->status->value === 'perlu_revisi';
 
-        // Kabag sedang menunggu review atas surat dari Staff — baik surat
-        // baru yang pertama kali masuk (status "Baru") maupun revisi yang
-        // baru dikirim balik setelah diminta perbaikan (status "Perlu
-        // Revisi"). Keduanya pakai kartu & tombol Diterima/Revisi yang sama
-        // supaya Kabag tidak perlu membuka form "Kirim Disposisi Baru".
         $bisaReviewRevisi = auth()->user()->isKabag()
             && $dispoTerakhir
-            && $dispoTerakhir->penerima_id === auth()->id()
+            && auth()->user()->sameRoleAs($dispoTerakhir->penerima)
             && $dispoTerakhir->pengirim?->isStaff()
             && in_array($surat->status->value, ['baru', 'perlu_revisi'], true);
 
@@ -200,7 +195,7 @@
                         $iconColor = match (true) {
                             $isPdf => 'text-rose-500',
                             $isGambar => 'text-emerald-500',
-                            default => 'text-blue-500', // docx & lainnya
+                            default => 'text-blue-500',
                         };
                     @endphp
                     <div class="mb-5 overflow-hidden rounded-lg border border-slate-200 last:mb-0">
@@ -215,13 +210,10 @@
                         </div>
 
                         @if ($isPdf)
-                            {{-- Preview inline untuk PDF --}}
                             <iframe src="{{ \Illuminate\Support\Facades\Storage::url($file->path_file) }}" class="h-[500px] w-full border-0"></iframe>
                         @elseif ($isGambar)
-                            {{-- Preview inline untuk gambar (JPG/PNG) --}}
                             <img src="{{ \Illuminate\Support\Facades\Storage::url($file->path_file) }}" alt="{{ $file->nama_file }}" class="max-h-[500px] w-full object-contain bg-slate-100">
                         @else
-                            {{-- DOCX & tipe lain tidak bisa dipratinjau langsung di browser --}}
                             <div class="flex flex-col items-center gap-2 px-4 py-8 text-center text-slate-400">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                 <p class="text-sm">Berkas Word tidak bisa dipratinjau di sini.</p>
@@ -240,18 +232,9 @@
         <div class="space-y-6">
 
             @unless (auth()->user()->isDirektur())
-                {{--
-                    Riwayat Disposisi:
-                    - Staff hanya melihat baris disposisi yang melibatkan
-                      dirinya sendiri (sebagai pengirim atau penerima).
-                    - Kabag juga hanya melihat baris yang melibatkan
-                      dirinya sendiri.
-                    - Direktur tidak perlu kartu ini sama sekali, karena
-                      keputusan Terima/Tolak di atas sudah mewakilinya.
-                --}}
                 @php
                     $riwayatDisposisi = $surat->disposisi->filter(
-                        fn ($d) => $d->pengirim_id === auth()->id() || $d->penerima_id === auth()->id()
+                        fn ($d) => auth()->user()->sameRoleAs($d->pengirim) || auth()->user()->sameRoleAs($d->penerima)
                     );
                 @endphp
 
@@ -322,15 +305,31 @@
                                     Cetak PDF
                                 </a>
 
-                                @if (auth()->user()->isStaff() && $d->penerima_id === auth()->id() && $d->status->value !== 'selesai')
-                                    <form method="POST" action="{{ route('disposisi.selesaikan', [$surat, $d]) }}">
-                                        @csrf
-                                        <button type="submit"
-                                            class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                            Tandai Selesai
-                                        </button>
-                                    </form>
+                                {{-- Akses Aksi Disposisi berbasis Role Penerima --}}
+                                @if (auth()->user()->sameRoleAs($d->penerima))
+                                    {{-- Tombol "Mulai Proses" jika status saat ini "Dibaca" --}}
+                                    @if ($d->status->value === 'dibaca')
+                                        <form method="POST" action="{{ route('disposisi.tindaklanjuti', [$surat, $d]) }}">
+                                            @csrf
+                                            <button type="submit"
+                                                class="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:underline">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                Mulai Proses
+                                            </button>
+                                        </form>
+                                    @endif
+
+                                    {{-- Tombol "Tandai Selesai" khusus Staff & jika status saat ini "Ditindaklanjuti" --}}
+                                    @if (auth()->user()->isStaff() && $d->status->value === 'ditindaklanjuti')
+                                        <form method="POST" action="{{ route('disposisi.selesaikan', [$surat, $d]) }}">
+                                            @csrf
+                                            <button type="submit"
+                                                class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                Tandai Selesai
+                                            </button>
+                                        </form>
+                                    @endif
                                 @endif
                             </div>
                         </li>
@@ -341,30 +340,11 @@
             </div>
             @endunless
 
-            {{--
-                Form "Kirim Disposisi Baru" disembunyikan kalau:
-                - Kabag sedang menunggu keputusan Diterima/Revisi atas surat
-                  dari Staff ($bisaReviewRevisi — lihat kartu "Review Revisi"
-                  / "Surat Masuk — Perlu Review" di atas), supaya tidak ada
-                  dua cara berbeda untuk melakukan hal yang sama. Begitu
-                  Kabag menandai "Diterima", disposisi terakhir berubah jadi
-                  Kabag -> Staff sehingga $bisaReviewRevisi otomatis bernilai
-                  false dan form ini muncul kembali — tinggal pilih Direktur
-                  untuk meneruskan surat.
-                - Surat sudah final, yaitu berstatus "Diterima" (ACC oleh
-                  Direktur) atau "Ditolak" — sudah tidak ada lagi disposisi
-                  lanjutan yang perlu dikirim, jadi form ini tidak relevan
-                  lagi untuk Staff maupun Kabag.
-            --}}
             @php
                 $suratSudahFinal = in_array($surat->status->value, ['diterima', 'ditolak'], true);
             @endphp
             @if ($penerimaOptions->isNotEmpty() && ! $bisaReviewRevisi && ! $suratSudahFinal)
                 @php
-                    // Staff yang sedang mengirim balik surat berstatus "Perlu
-                    // Revisi" ke Kabag: form & tombolnya sama persis, cuma
-                    // labelnya diganti supaya jelas ini "Kirim Revisi", bukan
-                    // disposisi baru yang tidak berkaitan.
                     $isKirimRevisi = auth()->user()->isStaff() && $surat->status->value === 'perlu_revisi';
                 @endphp
                 <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -398,19 +378,6 @@
                             <textarea name="instruksi" rows="3"
                                 class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"></textarea>
                         </div>
-
-                        {{--
-                            Catatan: Direktur tidak lagi punya form ini sama sekali
-                            (lihat SuratController::penerimaOptionsUntuk — Direktur
-                            selalu mendapat $penerimaOptions kosong), jadi tidak
-                            perlu penjelasan khusus untuk Direktur di sini lagi.
-                            Keputusan Diterima/Ditolak dilakukan lewat kartu
-                            "Keputusan Surat" di bagian atas halaman. Keputusan
-                            Diterima/Revisi milik Kabag juga sudah dipindahkan ke
-                            kartu "Review Revisi" / "Surat Masuk — Perlu Review" di
-                            atas, jadi form ini sekarang murni untuk mengirim
-                            disposisi ke tujuan berikutnya (mis. Kabag -> Direktur).
-                        --}}
 
                         <button type="submit"
                             class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800">

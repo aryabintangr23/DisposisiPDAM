@@ -43,6 +43,10 @@ class SuratController extends Controller
         $cari = trim((string) $request->query('cari', ''));
         $cari = $cari !== '' ? $cari : null;
 
+        // Filter "Terlambat" (overdue): surat yang punya disposisi belum
+        // Selesai dan sudah melewati batas_waktu-nya.
+        $overdue = $request->boolean('overdue');
+
         // Data dibagi per ROLE, bukan per akun: setiap akun staff_umum
         // melihat surat yang sama, setiap akun kabag_umum melihat surat
         // yang sama, dst. Admin: role manajemen — melihat semua surat.
@@ -52,7 +56,6 @@ class SuratController extends Controller
         } else {
             $scope = fn () => $this->scopeSuratUntukUser($user);
         }
-
 
         $query = $scope()->with('disposisi');
 
@@ -68,6 +71,10 @@ class SuratController extends Controller
             $query->whereHas('disposisi', fn ($q) => $q->where('prioritas', $prioritas));
         }
 
+        if ($overdue) {
+            $query->whereHas('disposisi', fn ($q) => $q->overdue());
+        }
+
         if ($cari) {
             $query->where(function ($q) use ($cari) {
                 $q->where('nomor_surat', 'like', "%{$cari}%")
@@ -80,6 +87,14 @@ class SuratController extends Controller
         }
 
         $surat = $query->latest()->paginate(15)->withQueryString();
+
+        // Jumlah surat overdue dalam cakupan (scope) user ini, dipakai untuk
+        // badge peringatan di dashboard & link filter "Terlambat" — dihitung
+        // terpisah dari $surat supaya tetap tampil walau filter overdue lagi
+        // tidak aktif (mis. sedang memfilter arah/prioritas lain).
+        $jumlahOverdue = $scope()
+            ->whereHas('disposisi', fn ($q) => $q->overdue())
+            ->count();
 
         // Tanggal-tanggal yang punya surat (untuk menandai bulatan pada
         // kalender di dashboard), dibatasi ke bulan yang sedang dilihat.
@@ -94,15 +109,14 @@ class SuratController extends Controller
             ->distinct()
             ->pluck('tgl');
 
-        return view('surat.index', compact('surat', 'tanggal', 'bulan', 'tanggalBersurat', 'arah', 'prioritas', 'cari'));
+        return view('surat.index', compact('surat', 'tanggal', 'bulan', 'tanggalBersurat', 'arah', 'prioritas', 'cari', 'overdue', 'jumlahOverdue'));
     }
 
     public function create(Request $request): View
     {
         $this->authorizeStaffOnly($request);
 
-        // Asumsi (perlu dikonfirmasi kalau salah): Staff juga yang menginput
-        // surat keluar, sama seperti surat masuk.
+        // Asumsi: Staff juga yang menginput surat keluar, sama seperti surat masuk.
         $kabagList = User::whereHas('role', fn ($q) => $q->where('nama_role', 'kabag_umum'))->get();
 
         return view('surat.create', compact('kabagList'));
@@ -113,6 +127,17 @@ class SuratController extends Controller
         $this->authorizeStaffOnly($request);
 
         $data = $request->validated();
+
+        // Soft warning: Cek duplikasi nomor agenda (termasuk yang di-soft delete)
+        if (! empty($data['nomor_agenda'])) {
+            $agendaExists = Surat::withTrashed()
+                ->where('nomor_agenda', $data['nomor_agenda'])
+                ->exists();
+
+            if ($agendaExists) {
+                session()->flash('warning', "Peringatan: Nomor agenda '{$data['nomor_agenda']}' sudah pernah digunakan pada surat lain.");
+            }
+        }
 
         $surat = Surat::create([
             'created_by' => $request->user()->id,
@@ -160,14 +185,6 @@ class SuratController extends Controller
         return redirect()->route('surat.show', $surat)->with('status', 'Surat dan lembar disposisi berhasil dibuat.');
     }
 
-    /**
-     * Form edit data surat. Hanya Staff yang membuat surat itu sendiri yang
-     * boleh mengedit, dan hanya selama status surat masih "Baru" atau
-     * "Perlu Revisi" (belum ada keputusan Diterima/Ditolak dari Direktur),
-     * supaya data yang sudah diputuskan final tidak berubah tanpa jejak.
-     * "Perlu Revisi" tetap boleh diedit karena itu justru maksudnya: Kabag
-     * meminta Staff memperbaiki surat sebelum dikirim ulang.
-     */
     public function edit(Request $request, Surat $surat): View
     {
         $this->authorizeEdit($request, $surat);
@@ -215,6 +232,9 @@ class SuratController extends Controller
     {
         $this->authorizeAkses($request, $surat);
 
+        // Otomatis tandai disposisi terkait sebagai "Dibaca" saat halaman dibuka
+        $this->tandaiDisposisiTerkaitDibaca($request->user(), $surat);
+
         $surat->load(['lampiran', 'disposisi.pengirim.role', 'disposisi.penerima.role', 'pembuat']);
 
         $penerimaOptions = $this->penerimaOptionsUntuk($request->user());
@@ -222,12 +242,6 @@ class SuratController extends Controller
         return view('surat.show', compact('surat', 'penerimaOptions'));
     }
 
-    /**
-     * Pindahkan surat yang dipilih (checkbox) ke tempat sampah (soft delete).
-     * Staff hanya bisa menghapus surat yang ia buat sendiri; Kabag bisa
-     * menghapus surat yang tampil di dashboard-nya (surat yang pernah
-     * didisposisikan kepada/darinya), sesuai cakupan scopeSuratUntukUser().
-     */
     public function hapus(Request $request): RedirectResponse
     {
         $this->authorizeHapusSurat($request);
@@ -244,10 +258,6 @@ class SuratController extends Controller
         return redirect()->route('surat.index')->with('status', "{$jumlah} surat dipindahkan ke tempat sampah.");
     }
 
-    /**
-     * Daftar surat yang ada di tempat sampah (dibatasi ke cakupan surat
-     * milik/terkait user yang sama seperti dashboard-nya).
-     */
     public function sampah(Request $request): View
     {
         $this->authorizeHapusSurat($request);
@@ -260,9 +270,6 @@ class SuratController extends Controller
         return view('surat.sampah', compact('surat'));
     }
 
-    /**
-     * Pulihkan surat terpilih dari tempat sampah.
-     */
     public function pulihkan(Request $request): RedirectResponse
     {
         $this->authorizeHapusSurat($request);
@@ -279,11 +286,6 @@ class SuratController extends Controller
         return redirect()->route('surat.sampah')->with('status', "{$jumlah} surat dipulihkan.");
     }
 
-    /**
-     * Hapus permanen surat terpilih dari tempat sampah, termasuk file
-     * lampiran fisiknya. Baris lampiran & disposisi terkait ikut terhapus
-     * otomatis di database (foreign key cascadeOnDelete).
-     */
     public function hapusPermanen(Request $request): RedirectResponse
     {
         $this->authorizeHapusSurat($request);
@@ -309,16 +311,22 @@ class SuratController extends Controller
         return redirect()->route('surat.sampah')->with('status', $suratList->count().' surat dihapus permanen.');
     }
 
+    /**
+     * Tandai disposisi terkait sebagai "Dibaca" jika ditujukan ke role user aktif.
+     */
+    private function tandaiDisposisiTerkaitDibaca(User $user, Surat $surat): void
+    {
+        $surat->disposisi()
+            ->whereHas('penerima', fn ($q) => $q->where('role_id', $user->role_id))
+            ->whereIn('status', [StatusDisposisi::Terkirim, StatusDisposisi::Diterima])
+            ->update(['status' => StatusDisposisi::Dibaca]);
+    }
+
     private function authorizeStaffOnly(Request $request): void
     {
         abort_unless($request->user()->isStaff(), 403, 'Hanya Staff Umum yang boleh menginput surat baru.');
     }
 
-    /**
-     * Aksi kelola tempat sampah surat (pindah ke sampah, lihat sampah,
-     * pulihkan, hapus permanen) dibatasi untuk Staff & Kabag. Direktur tidak
-     * diberi akses ini karena Direktur tidak pernah menjadi "pemilik" surat.
-     */
     private function authorizeHapusSurat(Request $request): void
     {
         $user = $request->user();
@@ -330,17 +338,6 @@ class SuratController extends Controller
         );
     }
 
-    /**
-     * Cakupan surat yang boleh dilihat/dikelola oleh $user, dipakai bersama
-     * oleh index() (dashboard) dan aksi tempat sampah, supaya surat yang
-     * dihapus/dipulihkan selalu konsisten dengan surat yang tampil di
-     * dashboard-nya masing-masing. Cakupan berdasarkan ROLE $user, bukan
-     * akun individunya, supaya semua akun dengan role sama melihat data
-     * yang sama:
-     * - Staff: surat yang dibuat oleh siapapun berrole staff_umum.
-     * - Kabag & Direktur: surat yang pernah masuk/keluar melalui siapapun
-     *   yang berrole sama (sebagai pengirim atau penerima disposisi).
-     */
     private function scopeSuratUntukUser(User $user)
     {
         if ($user->isStaff()) {
@@ -383,12 +380,6 @@ class SuratController extends Controller
         $roleTujuan = match (true) {
             $user->isStaff() => ['kabag_umum'],
             $user->isKabag() => ['staff_umum', 'direktur'],
-            // Direktur tidak lagi mengirim disposisi manual: keputusan
-            // Terima/Tolak sudah otomatis mengirim disposisi balasan ke
-            // Kabag (lihat DisposisiController::keputusan), jadi form
-            // "Kirim Disposisi Baru" tidak perlu ditampilkan untuk Direktur.
-            // Admin juga di luar alur disposisi (role manajemen), jadi
-            // tidak punya pilihan penerima.
             $user->isDirektur() || $user->isAdmin() => [],
             default => [],
         };

@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class LoginController extends Controller
@@ -22,9 +25,28 @@ class LoginController extends Controller
             'password' => ['required'],
         ]);
 
+        // Key unik berdasarkan gabungan email dan IP address
+        $throttleKey = Str::transliterate(Str::lower($request->input('email')).'|'.$request->ip());
+
+        // Cek apakah user telah melebihi batas percobaan (5 kali per 60 detik)
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+
+            throw ValidationException::withMessages([
+                'email' => "Terlalu banyak percobaan login. Silakan coba lagi dalam {$seconds} detik.",
+            ]);
+        }
+
+        // Coba autentikasi
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+            // Catat percobaan gagal
+            RateLimiter::hit($throttleKey, 60);
+
             return back()->withErrors(['email' => 'Email atau password salah.'])->onlyInput('email');
         }
+
+        // Bersihkan hit counter jika berhasil login
+        RateLimiter::clear($throttleKey);
 
         $request->session()->regenerate();
 
