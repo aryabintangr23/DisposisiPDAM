@@ -43,24 +43,14 @@ class SuratController extends Controller
         $cari = trim((string) $request->query('cari', ''));
         $cari = $cari !== '' ? $cari : null;
 
-        // Staff melihat surat yang ia buat sendiri. Kabag & Direktur melihat
-        // surat yang pernah masuk/keluar melalui mereka (sebagai pengirim
-
-        // atau penerima disposisi).
-        $scope = fn () => $this->scopeSuratUntukUser($user);
-
-        // atau penerima disposisi). Admin: role manajemen — melihat semua surat.
-        if ($user->isStaff()) {
-            $scope = fn () => Surat::where('created_by', $user->id);
-        } elseif ($user->isAdmin()) {
+        // Data dibagi per ROLE, bukan per akun: setiap akun staff_umum
+        // melihat surat yang sama, setiap akun kabag_umum melihat surat
+        // yang sama, dst. Admin: role manajemen — melihat semua surat.
+        // Lihat scopeSuratUntukUser() untuk detail cakupannya.
+        if ($user->isAdmin()) {
             $scope = fn () => Surat::query();
         } else {
-            $suratIds = Disposisi::where('penerima_id', $user->id)
-                ->orWhere('pengirim_id', $user->id)
-                ->pluck('surat_id')
-                ->unique();
-
-            $scope = fn () => Surat::whereIn('id', $suratIds);
+            $scope = fn () => $this->scopeSuratUntukUser($user);
         }
 
 
@@ -344,19 +334,21 @@ class SuratController extends Controller
      * Cakupan surat yang boleh dilihat/dikelola oleh $user, dipakai bersama
      * oleh index() (dashboard) dan aksi tempat sampah, supaya surat yang
      * dihapus/dipulihkan selalu konsisten dengan surat yang tampil di
-     * dashboard-nya masing-masing:
-     * - Staff: surat yang ia buat sendiri.
-     * - Kabag & Direktur: surat yang pernah masuk/keluar melalui mereka
-     *   (sebagai pengirim atau penerima disposisi).
+     * dashboard-nya masing-masing. Cakupan berdasarkan ROLE $user, bukan
+     * akun individunya, supaya semua akun dengan role sama melihat data
+     * yang sama:
+     * - Staff: surat yang dibuat oleh siapapun berrole staff_umum.
+     * - Kabag & Direktur: surat yang pernah masuk/keluar melalui siapapun
+     *   yang berrole sama (sebagai pengirim atau penerima disposisi).
      */
     private function scopeSuratUntukUser(User $user)
     {
         if ($user->isStaff()) {
-            return Surat::where('created_by', $user->id);
+            return Surat::whereHas('pembuat', fn ($q) => $q->where('role_id', $user->role_id));
         }
 
-        $suratIds = Disposisi::where('penerima_id', $user->id)
-            ->orWhere('pengirim_id', $user->id)
+        $suratIds = Disposisi::whereHas('penerima', fn ($q) => $q->where('role_id', $user->role_id))
+            ->orWhereHas('pengirim', fn ($q) => $q->where('role_id', $user->role_id))
             ->pluck('surat_id')
             ->unique();
 
@@ -367,7 +359,7 @@ class SuratController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user->isStaff() && $surat->created_by === $user->id, 403, 'Anda tidak memiliki akses untuk mengedit surat ini.');
+        abort_unless($user->isStaff() && $user->sameRoleAs($surat->pembuat), 403, 'Anda tidak memiliki akses untuk mengedit surat ini.');
 
         abort_unless(in_array($surat->status->value, ['baru', 'perlu_revisi'], true), 403, 'Surat yang sudah diputuskan (diterima/ditolak) tidak bisa diedit lagi.');
     }
@@ -377,10 +369,10 @@ class SuratController extends Controller
         $user = $request->user();
 
         $terlibat = $user->isAdmin()
-            || $surat->created_by === $user->id
+            || $user->sameRoleAs($surat->pembuat)
             || $surat->disposisi()
-                ->where('pengirim_id', $user->id)
-                ->orWhere('penerima_id', $user->id)
+                ->whereHas('pengirim', fn ($q) => $q->where('role_id', $user->role_id))
+                ->orWhereHas('penerima', fn ($q) => $q->where('role_id', $user->role_id))
                 ->exists();
 
         abort_unless($terlibat, 403, 'Anda tidak memiliki akses ke surat ini.');

@@ -87,4 +87,13 @@ class User extends Authenticatable
     {
         return $this->role?->nama_role === 'admin';
     }
+
+    // Dipakai di seluruh controller supaya cakupan data (dashboard, akses
+    // edit/hapus, aksi disposisi) konsisten dibagi per ROLE, bukan per akun
+    // individu. Jadi dua akun dengan role sama (mis. dua akun staff_umum)
+    // selalu melihat & bisa memproses data yang sama persis.
+    public function sameRoleAs(?User $lain): bool
+    {
+        return $lain !== null && $this->role_id === $lain->role_id;
+    }
 }

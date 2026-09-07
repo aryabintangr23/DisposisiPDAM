@@ -92,7 +92,7 @@ class DisposisiController extends Controller
         );
 
         abort_unless(
-            $disposisi->penerima_id === $request->user()->id,
+            $request->user()->sameRoleAs($disposisi->penerima),
             403,
             'Hanya penerima disposisi ini yang boleh menandainya selesai.'
         );
@@ -137,8 +137,7 @@ class DisposisiController extends Controller
         $dispoTerakhir = $surat->disposisiTerakhir();
 
         abort_unless(
-            $dispoTerakhir &&
-            $dispoTerakhir->penerima_id === $user->id,
+            $dispoTerakhir && $user->sameRoleAs($dispoTerakhir->penerima),
             403,
             'Surat ini belum didisposisikan kepada Anda.'
         );
@@ -246,7 +245,7 @@ class DisposisiController extends Controller
 
         abort_unless(
             $dispoTerakhir
-                && $dispoTerakhir->penerima_id === $user->id
+                && $user->sameRoleAs($dispoTerakhir->penerima)
                 && $dispoTerakhir->pengirim?->isStaff()
                 && in_array($surat->status->value, ['baru', 'perlu_revisi'], true),
             403,
@@ -311,9 +310,10 @@ class DisposisiController extends Controller
 
         $user = $request->user();
 
-        $terlibat = $surat->created_by === $user->id
-            || $disposisi->pengirim_id === $user->id
-            || $disposisi->penerima_id === $user->id;
+        $terlibat = $user->isAdmin()
+            || $user->sameRoleAs($surat->pembuat)
+            || $user->sameRoleAs($disposisi->pengirim)
+            || $user->sameRoleAs($disposisi->penerima);
 
         abort_unless(
             $terlibat,
