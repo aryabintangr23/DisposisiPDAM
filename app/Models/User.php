@@ -64,7 +64,14 @@ class User extends Authenticatable
 
     public function jumlahPesanBelumDibaca(): int
     {
-        return $this->pesanMasuk()->where('is_read', false)->count();
+        // Pesan yang sudah dipindahkan ke Tempat Sampah oleh penerima tidak
+        // lagi dihitung sebagai belum dibaca, walau is_read masih false —
+        // supaya notif angka di navbar berkurang begitu pesan dihapus, tanpa
+        // harus menandainya "dibaca" terlebih dulu.
+        return $this->pesanMasuk()
+            ->where('is_read', false)
+            ->whereNull('deleted_by_receiver_at')
+            ->count();
     }
 
     // Helper agar controller/policy tidak hardcode string role berulang kali.
@@ -86,5 +93,14 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role?->nama_role === 'admin';
+    }
+
+    // Dipakai di seluruh controller supaya cakupan data (dashboard, akses
+    // edit/hapus, aksi disposisi) konsisten dibagi per ROLE, bukan per akun
+    // individu. Jadi dua akun dengan role sama (mis. dua akun staff_umum)
+    // selalu melihat & bisa memproses data yang sama persis.
+    public function sameRoleAs(?User $lain): bool
+    {
+        return $lain !== null && $this->role_id === $lain->role_id;
     }
 }

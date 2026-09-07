@@ -40,7 +40,7 @@
             <td width="15%">Surat dari</td>
             <td width="35%">: {{ $surat->surat_dari ?? $surat->tujuan_surat ?? '-' }}</td>
             <td width="15%">Diterima tgl</td>
-            <td width="35%">: {{ $disposisi->tanggal_diterima?->format('d-m-Y') ?? '-' }}</td>
+            <td width="35%">: {{ $surat->tanggal_diterima?->format('d-m-Y') ?? '-' }}</td>
         </tr>
         <tr>
             <td>Tanggal surat</td>

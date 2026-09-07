@@ -18,7 +18,7 @@
 
     @include('sampah._tabs')
 
-    <div x-data="{ selected: [], allIds: {{ $pesan->pluck('id')->map(fn ($id) => (string) $id)->toJson() }} }">
+    <div x-data="{ selected: [], allIds: {{ $messages->pluck('id')->map(fn ($id) => (string) $id)->toJson() }} }">
         <div class="mb-3 flex items-center justify-between" x-show="selected.length > 0" x-cloak>
             <p class="text-sm text-slate-500"><span x-text="selected.length"></span> pesan dipilih</p>
             <div class="flex gap-2">
@@ -58,7 +58,7 @@
 
         <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <ul class="divide-y divide-slate-100">
-                @forelse ($pesan as $item)
+                @forelse ($messages as $item)
                     <li class="flex items-center gap-4 px-5 py-4">
                         <input type="checkbox" value="{{ $item->id }}" x-model="selected"
                                class="h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
@@ -67,7 +67,8 @@
                                 <p class="truncate text-sm font-medium text-slate-700">
                                     {{ $item->pengirim->nama }} &rarr; {{ $item->penerima->nama }}
                                 </p>
-                                <span class="shrink-0 text-xs text-slate-400">Dihapus {{ $item->deleted_at?->format('d-m-Y H:i') }}</span>
+                                {{-- Menggunakan updated_at saat penanda hapus diubah, menggantikan deleted_at global --}}
+                                <span class="shrink-0 text-xs text-slate-400">Dihapus {{ $item->updated_at?->format('d-m-Y H:i') }}</span>
                             </div>
                             <p class="truncate text-sm text-slate-600">{{ $item->subject }}</p>
                         </div>
@@ -82,6 +83,6 @@
     </div>
 
     <div class="mt-5">
-        {{ $pesan->links() }}
+        {{ $messages->links() }}
     </div>
 @endsection

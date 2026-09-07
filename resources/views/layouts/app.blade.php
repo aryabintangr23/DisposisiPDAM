@@ -51,7 +51,7 @@
             </div>
 
             {{-- ============ SEARCH BAR: cari surat cepat dari mana saja ============ --}}
-            <div class="px-3 pt-1">
+            {{-- <div class="px-3 pt-1">
                 <form method="GET" action="{{ route('surat.index') }}" class="relative">
                     <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
@@ -60,7 +60,7 @@
                            placeholder="Cari surat…"
                            class="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm text-white placeholder-brand-300 transition focus:border-brand-400 focus:bg-white/10 focus:outline-none">
                 </form>
-            </div>
+            </div> --}}
 
             <nav class="mt-4 space-y-1 overflow-y-auto px-3" style="max-height: calc(100vh - 4rem - 8.5rem);">
                 @php
@@ -122,7 +122,7 @@
                 <p class="mt-5 mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-300">Tempat Sampah</p>
 
                 @php
-                    $urlSampah = auth()->check() && auth()->user()->isStaff() ? route('surat.sampah') : route('pesan.sampah');
+                    $urlSampah = auth()->check() && (auth()->user()->isStaff() || auth()->user()->isKabag()) ? route('surat.sampah') : route('pesan.sampah');
                 @endphp
                 <a href="{{ $urlSampah }}"
                    class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition
@@ -274,6 +274,16 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <p class="font-medium">{{ session('status') }}</p>
+                    </div>
+                @endif
+
+                {{-- Banner Flash Warning (Amber) --}}
+                @if (session('warning'))
+                    <div class="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-5 w-5 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                        <p class="font-medium">{{ session('warning') }}</p>
                     </div>
                 @endif
 

@@ -49,4 +49,15 @@ class Surat extends Model
         // punya orderBy('created_at') ascending.
         return $this->disposisi()->reorder('created_at', 'desc')->first();
     }
+
+    /**
+     * True jika surat ini punya minimal satu disposisi yang overdue
+     * (dipakai untuk badge "Terlambat" di daftar surat). Memakai koleksi
+     * yang sudah di-eager-load ($this->disposisi) supaya tidak menambah
+     * query baru per baris saat dipanggil dari daftar.
+     */
+    public function adaDisposisiTerlambat(): bool
+    {
+        return $this->disposisi->contains(fn (Disposisi $d) => $d->isOverdue());
+    }
 }

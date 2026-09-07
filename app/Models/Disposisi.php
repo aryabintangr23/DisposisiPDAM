@@ -4,9 +4,9 @@ namespace App\Models;
 
 use App\Enums\Prioritas;
 use App\Enums\StatusDisposisi;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
 
 class Disposisi extends Model
 {
@@ -73,5 +73,29 @@ class Disposisi extends Model
     {
         return $this->belongsTo(User::class, 'penerima_id');
     }
-}
 
+    /**
+     * Disposisi dianggap terlambat (overdue) jika belum berstatus Selesai,
+     * punya batas_waktu, dan tanggal hari ini sudah melewati batas_waktu
+     * tersebut (tanggal_sekarang > batas_waktu).
+     */
+    public function isOverdue(): bool
+    {
+        if ($this->status === StatusDisposisi::Selesai || $this->batas_waktu === null) {
+            return false;
+        }
+
+        return now()->startOfDay()->gt($this->batas_waktu);
+    }
+
+    /**
+     * Scope query: hanya disposisi yang overdue (dipakai untuk filter
+     * dashboard "Terlambat").
+     */
+    public function scopeOverdue(Builder $query): Builder
+    {
+        return $query->where('status', '!=', StatusDisposisi::Selesai->value)
+            ->whereNotNull('batas_waktu')
+            ->whereDate('batas_waktu', '<', now()->toDateString());
+    }
+}
