@@ -13,9 +13,7 @@ use Illuminate\View\View;
 
 class UserController extends Controller
 {
-    /**
-     * Daftar semua user, bisa difilter berdasarkan role dan kata kunci.
-     */
+
     public function index(Request $request): View
     {
         $role = $request->query('role');
@@ -56,8 +54,6 @@ class UserController extends Controller
     public function store(StoreUserRequest $request): RedirectResponse
     {
         $data = $request->validated();
-
-        // Hanya boleh satu Admin — jaga-jaga walau validasi sudah memblokir.
         abort_if($this->roleIsAdmin($data['role_id']), 403, 'Hanya boleh ada satu Admin.');
 
         User::create([
@@ -72,8 +68,6 @@ class UserController extends Controller
 
     public function edit(User $user): View
     {
-        // User Admin tidak bisa diedit (diblokir di update()), jadi dropdown
-        // role tidak perlu menyertakan opsi Admin.
         $roles = Role::orderBy('id')->where('nama_role', '!=', 'admin')->get();
 
         return view('users.form', compact('user', 'roles'));
@@ -81,12 +75,9 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
-        // Admin tidak boleh mengubah role / menonaktifkan dirinya sendiri.
         abort_if($user->id === $request->user()->id, 403, 'Anda tidak bisa mengubah akun Admin sendiri.');
 
         $data = $request->validated();
-
-        // Hanya boleh satu Admin — jaga-jaga walau validasi sudah memblokir.
         abort_if($this->roleIsAdmin($data['role_id']), 403, 'Hanya boleh ada satu Admin.');
 
         $user->update([
@@ -104,7 +95,6 @@ class UserController extends Controller
 
     public function destroy(Request $request, User $user): RedirectResponse
     {
-        // Admin tidak boleh menghapus dirinya sendiri.
         abort_if($user->id === $request->user()->id, 403, 'Anda tidak bisa menghapus akun Admin sendiri.');
 
         $user->delete();

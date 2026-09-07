@@ -225,20 +225,21 @@
         {{-- Kolom kanan: riwayat disposisi + form kirim baru --}}
         <div class="space-y-6">
 
-            @unless (auth()->user()->isDirektur())
-                {{--
-                    Riwayat Disposisi:
-                    - Staff hanya melihat baris disposisi yang melibatkan
-                      dirinya sendiri (sebagai pengirim atau penerima).
-                    - Kabag juga hanya melihat baris yang melibatkan
-                      dirinya sendiri.
-                    - Direktur tidak perlu kartu ini sama sekali, karena
-                      keputusan Terima/Tolak di atas sudah mewakilinya.
-                --}}
+{{--
+                Riwayat Disposisi:
+                - Staff dan Kabag hanya melihat baris disposisi yang
+                  melibatkan dirinya sendiri (sebagai pengirim/penerima).
+                - Direktur juga ikut melihat kartu ini khusus baris yang
+                  melibatkannya (dia menerima lembar dari Kabag).
+                - Admin melihat seluruh baris (role manajemen, bukan bagian
+                  dari alur pengiriman).
+            --}}
                 @php
-                    $riwayatDisposisi = $surat->disposisi->filter(
-                        fn ($d) => $d->pengirim_id === auth()->id() || $d->penerima_id === auth()->id()
-                    );
+                    $riwayatDisposisi = auth()->user()->isAdmin()
+                        ? $surat->disposisi
+                        : $surat->disposisi->filter(
+                            fn ($d) => $d->pengirim_id === auth()->id() || $d->penerima_id === auth()->id()
+                        );
                 @endphp
 
             <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -325,7 +326,6 @@
                     @endforelse
                 </ol>
             </div>
-            @endunless
 
             @if ($penerimaOptions->isNotEmpty())
                 @php

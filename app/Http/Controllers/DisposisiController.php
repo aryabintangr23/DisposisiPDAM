@@ -65,7 +65,7 @@ class DisposisiController extends Controller
 
         if ($keputusan) {
             $surat->update([
-                'status' => StatusSurat::from($keputusan)
+                'status' => StatusSurat::from($keputusan),
             ]);
         }
 
@@ -98,7 +98,7 @@ class DisposisiController extends Controller
         );
 
         $disposisi->update([
-            'status' => StatusDisposisi::Selesai
+            'status' => StatusDisposisi::Selesai,
         ]);
 
         return back()
@@ -126,11 +126,11 @@ class DisposisiController extends Controller
         $data = $request->validate([
             'keputusan' => [
                 'required',
-                Rule::in(['diterima', 'ditolak'])
+                Rule::in(['diterima', 'ditolak']),
             ],
             'catatan' => [
                 'nullable',
-                'string'
+                'string',
             ],
         ]);
 
@@ -178,7 +178,7 @@ class DisposisiController extends Controller
         ]);
 
         $surat->update([
-            'status' => StatusSurat::from($data['keputusan'])
+            'status' => StatusSurat::from($data['keputusan']),
         ]);
 
         $label = $data['keputusan'] === 'diterima'
@@ -225,11 +225,11 @@ class DisposisiController extends Controller
         $data = $request->validate([
             'keputusan' => [
                 'required',
-                Rule::in(['diterima', 'revisi'])
+                Rule::in(['diterima', 'revisi']),
             ],
             'catatan' => [
                 'nullable',
-                'string'
+                'string',
             ],
         ]);
 
@@ -301,9 +301,16 @@ class DisposisiController extends Controller
 
         $user = $request->user();
 
-        $terlibat = $surat->created_by === $user->id
-            || $disposisi->pengirim_id === $user->id
-            || $disposisi->penerima_id === $user->id;
+        // Izin cetak disamakan dengan izin buka surat (lihat
+        // SuratController::authorizeAkses): admin, pembuat surat, atau yang
+        // terlibat di salah satu disposisi surat ini boleh mencetak lembar
+        // disposisi apa pun di riwayatnya.
+        $terlibat = $user->isAdmin()
+            || $surat->created_by === $user->id
+            || $surat->disposisi()
+                ->where('pengirim_id', $user->id)
+                ->orWhere('penerima_id', $user->id)
+                ->exists();
 
         abort_unless(
             $terlibat,
@@ -313,7 +320,7 @@ class DisposisiController extends Controller
 
         $disposisi->load([
             'pengirim.role',
-            'penerima.role'
+            'penerima.role',
         ]);
 
         $pdf = Pdf::loadView(
