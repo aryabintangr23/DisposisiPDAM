@@ -4,7 +4,7 @@ Aplikasi disposisi surat-menyurat internal PDAM. Laravel 13 monolith, PHP ^8.3 (
 
 ## Don't edit the wrong files
 
-- There is a **stale duplicate** of the rule service at the repo root: `Services/DisposisiRuleService.php`. It declares `namespace App\Services`, but Composer maps `App\` → `app/`, so this root file is **not autoloaded and does nothing**. The live one is `app/Services/DisposisiRuleService.php` (it has `bolehSetKeputusan()`, which the root copy lacks and which `SuratController`/`DisposisiController` call). Never edit anything under the root `Services/` folder; change `app/Services/`.
+- Composer maps `App\` → `app/` (see `composer.json`), so any PHP file at the repo root is dead code — an earlier `Services/DisposisiRuleService.php` lived there and was silently not autoloaded. Service classes live in `app/Services/`; always edit there.
 - See `README-tahap5.md` for the frozen domain design decisions (they are the source of truth for business rules).
 
 ## Domain model (Indonesian)
@@ -14,6 +14,8 @@ Aplikasi disposisi surat-menyurat internal PDAM. Laravel 13 monolith, PHP ^8.3 (
 - Native enums in `app/Enums`: `ArahSurat`, `StatusSurat`, `Prioritas`, `StatusDisposisi`. `Prioritas::batasHari()` uses **calendar days** (not workdays); `TungguPetunjuk` returns `null` (no deadline).
 - Centralize all domain rules in `app/Services/DisposisiRuleService`: valid flow matrix (only Staff→Kabag, Kabag→Staff/Direktur, Direktur→Kabag); only **Staff** may mark a disposisi `selesai`; deadline calc; `bolehSetKeputusan()`. Controllers `abort_unless(...)` against it rather than duplicating rules.
 - Gates are registered in `app/Providers/AuthServiceProvider.php` (`kirim-disposisi`, `selesaikan-disposisi`); controllers also check rules directly.
+- Data cakupan (daftar surat, akses edit/hapus, dashboard) dibagi per **role**, bukan per akun: `User::sameRoleAs()`, `SuratController::scopeSuratUntukUser()` / `authorizeAkses()`. Dua akun berrole sama melihat & memproses data yang sama persis. Tidak ada kepemilikan per-user untuk surat.
+- Modul kedua selain surat: pesan internal (`Message`, route `pesan.*`), model inbox dengan soft-delete per sisi (`deleted_by_sender_at` / `deleted_by_receiver_at`); pesan dihapus permanen saat kedua pihak menghapus.
 
 ## Route gotcha
 

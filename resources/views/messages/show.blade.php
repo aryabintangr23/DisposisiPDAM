@@ -40,7 +40,7 @@
             {{ $pesan->body }}
         </div>
 
-        <div class="mt-5 flex flex-wrap gap-3">
+        <div class="mt-5">
             @if ($pesan->surat_id)
                 <a href="{{ route('surat.show', $pesan->surat_id) }}"
                    class="inline-flex items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800">
@@ -48,11 +48,6 @@
                     Lihat Surat
                 </a>
             @endif
-            <a href="{{ route('pesan.create', ['to' => $pesan->sender_id === auth()->id() ? $pesan->receiver_id : $pesan->sender_id, 'subjek' => 'Re: '.$pesan->subject]) }}"
-               class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                Balas
-            </a>
         </div>
     </div>
 @endsection

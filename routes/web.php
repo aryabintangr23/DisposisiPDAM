@@ -47,13 +47,10 @@ Route::middleware('auth')->group(function () {
     // Menu Pesan: pesan internal antar pengguna, mirip email sederhana.
     Route::prefix('pesan')->name('pesan.')->group(function () {
         Route::get('/', [MessageController::class, 'index'])->name('index');
-        Route::get('/tulis', [MessageController::class, 'create'])->name('create');
-        Route::post('/', [MessageController::class, 'store'])->name('store');
 
         // Sama seperti di atas: /pesan/sampah harus sebelum /pesan/{pesan}.
         Route::get('/sampah', [MessageController::class, 'sampah'])->name('sampah');
         Route::post('/hapus', [MessageController::class, 'hapus'])->name('hapus');
-        Route::post('/tandai-dibaca', [MessageController::class, 'tandaiDibaca'])->name('tandaiDibaca');
         Route::post('/sampah/pulihkan', [MessageController::class, 'pulihkan'])->name('pulihkan');
         Route::post('/sampah/hapus-permanen', [MessageController::class, 'hapusPermanen'])->name('hapusPermanen');
 
