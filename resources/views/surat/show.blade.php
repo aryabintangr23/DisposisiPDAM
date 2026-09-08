@@ -3,6 +3,20 @@
 @section('title', $surat->nomor_surat)
 
 @section('content')
+    @php
+        // Dihitung di awal supaya bisa dipakai untuk keterangan prioritas
+        // di header surat, sebelum dipakai lagi untuk logika keputusan dsb.
+        $dispoTerakhir = $surat->disposisiTerakhir();
+
+        $prioritasBadgeColor = fn ($p) => match ($p) {
+            'sangat_segera' => 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200',
+            'segera' => 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-200',
+            'biasa' => 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200',
+            'tunggu_petunjuk' => 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200',
+            default => 'bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200',
+        };
+    @endphp
+
     <div class="mt-6 mb-6">
         <a href="{{ route('surat.index') }}" class="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-brand-700">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
@@ -23,6 +37,15 @@
                 {{ $surat->status->label() }}
             </span>
 
+            @if ($dispoTerakhir)
+                {{-- Keterangan prioritas surat, diambil dari disposisi terakhir --}}
+                <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold {{ $prioritasBadgeColor($dispoTerakhir->prioritas->value) }}"
+                      title="Prioritas berdasarkan disposisi terakhir">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    Prioritas: {{ $dispoTerakhir->prioritas->label() }}
+                </span>
+            @endif
+
             @if (auth()->user()->isStaff() && $surat->created_by === auth()->id() && in_array($surat->status->value, ['baru', 'perlu_revisi'], true))
                 <a href="{{ route('surat.edit', $surat) }}"
                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
@@ -32,10 +55,19 @@
             @endif
         </div>
         <p class="mt-1 text-sm text-slate-500">{{ $surat->perihal }}</p>
+
+        @if ($dispoTerakhir && $dispoTerakhir->prioritas->batasHari())
+            <p class="mt-1 text-xs text-slate-400">
+                Target penyelesaian disposisi berjalan: {{ $dispoTerakhir->prioritas->batasHari() }} hari kalender sejak tanggal disposisi
+                @if ($dispoTerakhir->batas_waktu)
+                    (batas waktu {{ $dispoTerakhir->batas_waktu->format('d-m-Y') }})
+                @endif
+                .
+            </p>
+        @endif
     </div>
 
     @php
-        $dispoTerakhir = $surat->disposisiTerakhir();
         $bisaMemutuskan = auth()->user()->isDirektur()
             && $dispoTerakhir
             && $dispoTerakhir->penerima_id === auth()->id()
@@ -269,62 +301,82 @@
                     };
                 @endphp
 
-                <ol class="relative space-y-6 border-l-2 border-slate-100 pl-5">
-                    @forelse ($riwayatDisposisi as $d)
-                        <li class="relative">
-                            <span
-                                class="absolute -left-[27px] top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-white ring-2 {{ $prioritasDotColor($d->prioritas->value) }}"
-                                title="Prioritas: {{ $d->prioritas->label() }}"></span>
+                {{-- Riwayat disposisi ditampilkan sebagai garis horizontal
+                     (mirip progress bar / loading), setiap titik mewakili
+                     satu langkah disposisi dan dihubungkan garis lurus. --}}
+                @if ($riwayatDisposisi->isNotEmpty())
+                    <div class="-mx-1 overflow-x-auto pb-2">
+                        <ol class="flex min-w-max items-start px-1">
+                            @foreach ($riwayatDisposisi as $d)
+                                <li class="flex w-64 shrink-0 flex-col items-stretch sm:w-72">
+                                    {{-- garis + titik --}}
+                                    <div class="flex items-center">
+                                        <div class="h-0.5 flex-1 {{ $loop->first ? 'bg-transparent' : 'bg-slate-200' }}"></div>
+                                        <span
+                                            class="relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-white ring-2 {{ $prioritasDotColor($d->prioritas->value) }}"
+                                            title="Prioritas: {{ $d->prioritas->label() }}">
+                                            @if ($d->status->value !== 'selesai')
+                                                {{-- efek berdenyut untuk langkah yang masih berjalan, kesan "loading" --}}
+                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full {{ $prioritasDotColor($d->prioritas->value) }} opacity-60"></span>
+                                            @endif
+                                        </span>
+                                        <div class="h-0.5 flex-1 {{ $loop->last ? 'bg-transparent' : 'bg-slate-200' }}"></div>
+                                    </div>
 
-                            <div class="flex flex-wrap items-center gap-2">
-                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ $prioritasColor($d->prioritas->value) }}">
-                                    {{ $d->prioritas->label() }}
-                                </span>
-                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ $dispoStatusColor($d->status->value) }}">
-                                    {{ $d->status->label() }}
-                                </span>
-                            </div>
+                                    {{-- kartu detail langkah --}}
+                                    <div class="mt-3 flex-1 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ $prioritasColor($d->prioritas->value) }}">
+                                                {{ $d->prioritas->label() }}
+                                            </span>
+                                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ $dispoStatusColor($d->status->value) }}">
+                                                {{ $d->status->label() }}
+                                            </span>
+                                        </div>
 
-                            <p class="mt-1.5 text-sm text-slate-700">
-                                <span class="font-medium">{{ $d->pengirim->nama }}</span>
-                                <span class="text-slate-400">({{ ucwords(str_replace('_',' ',$d->pengirim->role->nama_role)) }})</span>
-                                <svg xmlns="http://www.w3.org/2000/svg" class="mx-1 inline h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                                <span class="font-medium">{{ $d->penerima->nama }}</span>
-                                <span class="text-slate-400">({{ ucwords(str_replace('_',' ',$d->penerima->role->nama_role)) }})</span>
-                            </p>
+                                        <p class="mt-1.5 text-sm text-slate-700">
+                                            <span class="font-medium">{{ $d->pengirim->nama }}</span>
+                                            <span class="text-slate-400">({{ ucwords(str_replace('_',' ',$d->pengirim->role->nama_role)) }})</span>
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="mx-1 inline h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                                            <span class="font-medium">{{ $d->penerima->nama }}</span>
+                                            <span class="text-slate-400">({{ ucwords(str_replace('_',' ',$d->penerima->role->nama_role)) }})</span>
+                                        </p>
 
-                            <p class="mt-1 text-xs text-slate-400">
-                                {{ $d->tanggal_disposisi?->format('d-m-Y') }}
-                                @if ($d->batas_waktu) &middot; Batas waktu {{ $d->batas_waktu->format('d-m-Y') }} @endif
-                            </p>
+                                        <p class="mt-1 text-xs text-slate-400">
+                                            {{ $d->tanggal_disposisi?->format('d-m-Y') }}
+                                            @if ($d->batas_waktu) &middot; Batas waktu {{ $d->batas_waktu->format('d-m-Y') }} @endif
+                                        </p>
 
-                            @if ($d->instruksi)
-                                <p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{{ $d->instruksi }}</p>
-                            @endif
+                                        @if ($d->instruksi)
+                                            <p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{{ $d->instruksi }}</p>
+                                        @endif
 
-                            <div class="mt-2 flex items-center gap-3">
-                                <a href="{{ route('disposisi.cetak', [$surat, $d]) }}" target="_blank" data-turbo="false"
-                                   class="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:underline">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2m-8 4h8v-6H8v6z" /></svg>
-                                    Cetak PDF
-                                </a>
+                                        <div class="mt-2 flex flex-wrap items-center gap-3">
+                                            <a href="{{ route('disposisi.cetak', [$surat, $d]) }}" target="_blank" data-turbo="false"
+                                               class="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:underline">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2m-8 4h8v-6H8v6z" /></svg>
+                                                Cetak PDF
+                                            </a>
 
-                                @if (auth()->user()->isStaff() && $d->penerima_id === auth()->id() && $d->status->value !== 'selesai')
-                                    <form method="POST" action="{{ route('disposisi.selesaikan', [$surat, $d]) }}">
-                                        @csrf
-                                        <button type="submit"
-                                            class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                            Tandai Selesai
-                                        </button>
-                                    </form>
-                                @endif
-                            </div>
-                        </li>
-                    @empty
-                        <p class="text-sm text-slate-400">Belum ada riwayat disposisi untuk Anda pada surat ini.</p>
-                    @endforelse
-                </ol>
+                                            @if (auth()->user()->isStaff() && $d->penerima_id === auth()->id() && $d->status->value !== 'selesai')
+                                                <form method="POST" action="{{ route('disposisi.selesaikan', [$surat, $d]) }}">
+                                                    @csrf
+                                                    <button type="submit"
+                                                        class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                        Tandai Selesai
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </li>
+                            @endforeach
+                        </ol>
+                    </div>
+                @else
+                    <p class="text-sm text-slate-400">Belum ada riwayat disposisi untuk Anda pada surat ini.</p>
+                @endif
             </div>
 
             @if ($penerimaOptions->isNotEmpty())

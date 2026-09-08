@@ -216,7 +216,7 @@ class SuratController extends Controller
 
         $surat->load(['lampiran', 'disposisi.pengirim.role', 'disposisi.penerima.role', 'pembuat']);
 
-        $penerimaOptions = $this->penerimaOptionsUntuk($request->user());
+        $penerimaOptions = $this->penerimaOptionsUntuk($request->user(), $surat);
 
         return view('surat.show', compact('surat', 'penerimaOptions'));
     }
@@ -340,8 +340,26 @@ class SuratController extends Controller
         abort_unless($terlibat, 403, 'Anda tidak memiliki akses ke surat ini.');
     }
 
-    private function penerimaOptionsUntuk(User $user)
+    /**
+     * DIPERBAIKI: setelah surat berstatus "Diterima" (disetujui Direktur),
+     * alur disposisi dianggap sudah final/selesai. Form & tombol "Kirim
+     * Disposisi" tidak lagi ditampilkan untuk siapa pun — termasuk Kabag
+     * dan Staff — supaya tidak ada lagi disposisi baru yang dikirim atas
+     * surat yang sudah disetujui.
+     *
+     * Sebaliknya, kalau surat berstatus "Ditolak" (atau status lain seperti
+     * "Baru" / "Perlu Revisi"), form & tombol "Kirim Disposisi" tetap
+     * tampil seperti biasa — karena surat yang ditolak Direktur otomatis
+     * sudah dikirim kembali ke Kabag (lihat DisposisiController::keputusan()),
+     * dan Kabag mungkin masih perlu meneruskannya (mis. ke Staff untuk
+     * ditindaklanjuti ulang).
+     */
+    private function penerimaOptionsUntuk(User $user, Surat $surat)
     {
+        if ($surat->status->value === 'diterima') {
+            return collect();
+        }
+
         $roleTujuan = match (true) {
             $user->isStaff() => ['kabag_umum'],
             $user->isKabag() => ['staff_umum', 'direktur'],

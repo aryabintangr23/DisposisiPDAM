@@ -23,6 +23,17 @@ class DisposisiController extends Controller
         Surat $surat,
         DisposisiRuleService $rule
     ): RedirectResponse {
+        // DIPERBAIKI: guard sisi server, senada dengan disembunyikannya form
+        // "Kirim Disposisi" di halaman surat.show saat surat sudah
+        // berstatus "Diterima" (final). Tanpa ini, endpoint masih bisa
+        // diakses langsung (mis. lewat request manual) walau formnya sudah
+        // tidak ditampilkan di UI.
+        abort_if(
+            $surat->status->value === 'diterima',
+            403,
+            'Surat ini sudah disetujui (final) dan tidak bisa lagi dikirim disposisi baru.'
+        );
+
         $data = $request->validated();
         $pengirim = $request->user();
         $penerima = User::findOrFail($data['penerima_id']);
