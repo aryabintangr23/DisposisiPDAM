@@ -7,7 +7,6 @@ use App\Enums\Prioritas;
 use App\Enums\StatusDisposisi;
 use App\Http\Requests\StoreSuratRequest;
 use App\Http\Requests\UpdateSuratRequest;
-use App\Models\Disposisi;
 use App\Models\Surat;
 use App\Models\User;
 use App\Services\DisposisiRuleService;
@@ -43,19 +42,11 @@ class SuratController extends Controller
         $cari = trim((string) $request->query('cari', ''));
         $cari = $cari !== '' ? $cari : null;
 
-        // Filter "Terlambat" (overdue): surat yang punya disposisi belum
-        // Selesai dan sudah melewati batas_waktu-nya.
-        $overdue = $request->boolean('overdue');
-
         // Data dibagi per ROLE, bukan per akun: setiap akun staff_umum
         // melihat surat yang sama, setiap akun kabag_umum melihat surat
         // yang sama, dst. Admin: role manajemen — melihat semua surat.
-        // Lihat scopeSuratUntukUser() untuk detail cakupannya.
-        if ($user->isAdmin()) {
-            $scope = fn () => Surat::query();
-        } else {
-            $scope = fn () => $this->scopeSuratUntukUser($user);
-        }
+        // Lihat Surat::scopeUntukRole() untuk detail cakupannya.
+        $scope = fn () => Surat::untukRole($user);
 
         $query = $scope()->with('disposisi');
 
@@ -71,10 +62,6 @@ class SuratController extends Controller
             $query->whereHas('disposisi', fn ($q) => $q->where('prioritas', $prioritas));
         }
 
-        if ($overdue) {
-            $query->whereHas('disposisi', fn ($q) => $q->overdue());
-        }
-
         if ($cari) {
             $query->where(function ($q) use ($cari) {
                 $q->where('nomor_surat', 'like', "%{$cari}%")
@@ -87,14 +74,6 @@ class SuratController extends Controller
         }
 
         $surat = $query->latest()->paginate(15)->withQueryString();
-
-        // Jumlah surat overdue dalam cakupan (scope) user ini, dipakai untuk
-        // badge peringatan di dashboard & link filter "Terlambat" — dihitung
-        // terpisah dari $surat supaya tetap tampil walau filter overdue lagi
-        // tidak aktif (mis. sedang memfilter arah/prioritas lain).
-        $jumlahOverdue = $scope()
-            ->whereHas('disposisi', fn ($q) => $q->overdue())
-            ->count();
 
         // Tanggal-tanggal yang punya surat (untuk menandai bulatan pada
         // kalender di dashboard), dibatasi ke bulan yang sedang dilihat.
@@ -109,7 +88,7 @@ class SuratController extends Controller
             ->distinct()
             ->pluck('tgl');
 
-        return view('surat.index', compact('surat', 'tanggal', 'bulan', 'tanggalBersurat', 'arah', 'prioritas', 'cari', 'overdue', 'jumlahOverdue'));
+        return view('surat.index', compact('surat', 'tanggal', 'bulan', 'tanggalBersurat', 'arah', 'prioritas', 'cari'));
     }
 
     public function create(Request $request): View
@@ -251,7 +230,7 @@ class SuratController extends Controller
             'ids.*' => ['integer', 'exists:surat,id'],
         ]);
 
-        $query = $this->scopeSuratUntukUser($request->user())->whereIn('id', $data['ids']);
+        $query = Surat::untukRole($request->user())->whereIn('id', $data['ids']);
         $jumlah = $query->count();
         $query->delete();
 
@@ -262,7 +241,7 @@ class SuratController extends Controller
     {
         $this->authorizeHapusSurat($request);
 
-        $surat = $this->scopeSuratUntukUser($request->user())
+        $surat = Surat::untukRole($request->user())
             ->onlyTrashed()
             ->latest('deleted_at')
             ->paginate(15);
@@ -279,7 +258,7 @@ class SuratController extends Controller
             'ids.*' => ['integer'],
         ]);
 
-        $query = $this->scopeSuratUntukUser($request->user())->onlyTrashed()->whereIn('id', $data['ids']);
+        $query = Surat::untukRole($request->user())->onlyTrashed()->whereIn('id', $data['ids']);
         $jumlah = $query->count();
         $query->restore();
 
@@ -295,7 +274,7 @@ class SuratController extends Controller
             'ids.*' => ['integer'],
         ]);
 
-        $suratList = $this->scopeSuratUntukUser($request->user())
+        $suratList = Surat::untukRole($request->user())
             ->onlyTrashed()
             ->whereIn('id', $data['ids'])
             ->with('lampiran')
@@ -336,20 +315,6 @@ class SuratController extends Controller
             403,
             'Anda tidak memiliki akses untuk mengelola tempat sampah surat.'
         );
-    }
-
-    private function scopeSuratUntukUser(User $user)
-    {
-        if ($user->isStaff()) {
-            return Surat::whereHas('pembuat', fn ($q) => $q->where('role_id', $user->role_id));
-        }
-
-        $suratIds = Disposisi::whereHas('penerima', fn ($q) => $q->where('role_id', $user->role_id))
-            ->orWhereHas('pengirim', fn ($q) => $q->where('role_id', $user->role_id))
-            ->pluck('surat_id')
-            ->unique();
-
-        return Surat::whereIn('id', $suratIds);
     }
 
     private function authorizeEdit(Request $request, Surat $surat): void

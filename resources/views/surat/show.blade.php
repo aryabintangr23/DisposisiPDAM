@@ -303,7 +303,7 @@
                             @endif
 
                             <div class="mt-2 flex items-center gap-3">
-                                <a href="{{ route('disposisi.cetak', [$surat, $d]) }}" target="_blank"
+                                <a href="{{ route('disposisi.cetak', [$surat, $d]) }}" target="_blank" data-turbo="false"
                                    class="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:underline">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2m-8 4h8v-6H8v6z" /></svg>
                                     Cetak PDF
