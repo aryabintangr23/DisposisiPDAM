@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ArahSurat;
 use App\Enums\StatusSurat;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -31,6 +32,31 @@ class Surat extends Model
     public function pembuat(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Cakupan surat untuk $user berdasarkan ROLE (bukan per akun),
+     * supaya semua akun berrole sama melihat & memproses data yang sama.
+     * - Admin: semua surat.
+     * - Staff: surat yang dibuat oleh akun berrole sama (staff_umum).
+     * - Kabag/Direktur: surat yang terlibat disposisi dengan role-nya.
+     */
+    public function scopeUntukRole(Builder $query, User $user): Builder
+    {
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
+        if ($user->isStaff()) {
+            return $query->whereHas('pembuat', fn ($q) => $q->where('role_id', $user->role_id));
+        }
+
+        $suratIds = Disposisi::whereHas('penerima', fn ($q) => $q->where('role_id', $user->role_id))
+            ->orWhereHas('pengirim', fn ($q) => $q->where('role_id', $user->role_id))
+            ->pluck('surat_id')
+            ->unique();
+
+        return $query->whereIn('id', $suratIds);
     }
 
     public function lampiran(): HasMany

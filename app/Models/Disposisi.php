@@ -98,4 +98,18 @@ class Disposisi extends Model
             ->whereNotNull('batas_waktu')
             ->whereDate('batas_waktu', '<', now()->toDateString());
     }
+
+    /**
+     * Scope query: disposisi yang "mendekati batas waktu prioritas" —
+     * masih berstatus aktif (belum Selesai), punya batas_waktu, dan batasnya
+     * jatuh dalam $dalamHari hari ke depan (termasuk hari ini). Dipakai untuk
+     * kotak peringatan di dashboard.
+     */
+    public function scopeMendekatiBatas(Builder $query, int $dalamHari = 3): Builder
+    {
+        return $query->where('status', '!=', StatusDisposisi::Selesai->value)
+            ->whereNotNull('batas_waktu')
+            ->whereDate('batas_waktu', '>=', now()->toDateString())
+            ->whereDate('batas_waktu', '<=', now()->addDays($dalamHari)->toDateString());
+    }
 }

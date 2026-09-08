@@ -25,6 +25,12 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    {{-- Turbo (Hotwired): navigasi antar halaman tanpa reload penuh (SPA-like).
+         Meng-intercept klik link & submit form, fetch halaman berikutnya di
+         background, lalu menukar isi <body> tanpa layar loading. Kalau CDN
+         gagal dimuat, aplikasi tetap berfungsi normal (full reload). --}}
+    <script src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8/dist/turbo.es2017-umd.js"></script>
     <style>
         body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
         [x-cloak] { display: none !important; }
@@ -68,6 +74,16 @@
                         ? request()->query('arah')
                         : null;
                 @endphp
+
+                <a href="{{ route('dashboard') }}"
+                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition
+                          {{ request()->routeIs('dashboard') ? 'bg-white/10 text-white' : 'text-brand-100 hover:bg-white/5 hover:text-white' }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 5a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 11a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3zm10-11a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1V5zm0 11a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-3z" />
+                    </svg>
+                    Dashboard
+                </a>
+
                 <a href="{{ route('surat.index') }}"
                    class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition
                           {{ request()->routeIs('surat.*') && !request()->routeIs('surat.create') && !request()->routeIs('surat.sampah') && !request()->routeIs('surat.edit') && !$arahAktif ? 'bg-white/10 text-white' : 'text-brand-100 hover:bg-white/5 hover:text-white' }}">
@@ -317,5 +333,21 @@
 
     {{-- Alpine.js untuk interaksi sidebar (toggle mobile) --}}
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+    {{-- Glue Turbo <-> Alpine: saat Turbo menukar <body>, komponen Alpine
+         (sidebar, dropdown profil, dsb.) perlu di-inisialisasi ulang supaya
+         interaksi tetap jalan tanpa reload penuh. --}}
+    <script>
+        document.addEventListener('turbo:before-cache', () => {
+            if (window.Alpine) {
+                Alpine.destroyTree(document.body);
+            }
+        });
+        document.addEventListener('turbo:render', () => {
+            if (window.Alpine) {
+                Alpine.initTree(document.body);
+            }
+        });
+    </script>
 </body>
 </html>

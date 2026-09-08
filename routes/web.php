@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisposisiController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\ProfileController;
@@ -20,6 +21,8 @@ Route::post('/logout', [LoginController::class, 'destroy'])->name('logout')->mid
 
 Route::middleware('auth')->group(function () {
     Route::redirect('/', '/surat');
+
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/surat', [SuratController::class, 'index'])->name('surat.index');
     Route::get('/surat/create', [SuratController::class, 'create'])->name('surat.create');
