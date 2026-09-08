@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Prioritas;
 use App\Enums\StatusDisposisi;
+use App\Enums\StatusSurat;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -101,14 +102,24 @@ class Disposisi extends Model
 
     /**
      * Scope query: disposisi yang "mendekati batas waktu prioritas" —
-     * masih berstatus aktif (belum Selesai), punya batas_waktu, dan batasnya
-     * jatuh dalam $dalamHari hari ke depan (termasuk hari ini). Dipakai untuk
-     * kotak peringatan di dashboard.
+     * masih berstatus aktif (belum Selesai), punya batas_waktu, batasnya
+     * jatuh dalam $dalamHari hari ke depan (termasuk hari ini), DAN suratnya
+     * belum selesai di-putuskan (status Surat bukan Diterima/Ditolak).
+     *
+     * Setelah surat diputuskan (mis. Direktur klik "Terima"/"Tolak" sehingga
+     * status Surat menjadi diterima/ditolak), alur surat itu selesai sehingga
+     * batas waktu disposisi lamanya tidak lagi dipantau di kotak peringatan.
+     *
+     * Dipakai untuk kotak peringatan di dashboard.
      */
     public function scopeMendekatiBatas(Builder $query, int $dalamHari = 3): Builder
     {
         return $query->where('status', '!=', StatusDisposisi::Selesai->value)
             ->whereNotNull('batas_waktu')
+            ->whereHas('surat', fn (Builder $q) => $q->whereNotIn('status', [
+                StatusSurat::Diterima->value,
+                StatusSurat::Ditolak->value,
+            ]))
             ->whereDate('batas_waktu', '>=', now()->toDateString())
             ->whereDate('batas_waktu', '<=', now()->addDays($dalamHari)->toDateString());
     }
