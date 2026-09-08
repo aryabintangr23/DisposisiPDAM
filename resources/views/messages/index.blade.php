@@ -8,18 +8,40 @@
         <p class="mt-1 text-sm text-slate-500">Pesan otomatis dari notifikasi disposisi surat.</p>
     </div>
 
+    {{-- BARU: Tab Kotak Masuk / Terkirim. Kotak Masuk berisi pesan yang
+         DITERIMA user (inilah yang membuat angka notif di navbar
+         bertambah), sedangkan Kotak Terkirim berisi pesan yang dikirim
+         user. Sebelumnya halaman ini hanya menampilkan pesan terkirim,
+         sehingga pesan masuk (yang membuat badge bertambah) tidak pernah
+         bisa dibuka/ditandai dibaca dari sini. --}}
+    <div class="mb-3 inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
+        <a href="{{ route('pesan.index', array_filter(['kotak' => 'masuk', 'arah' => $arah])) }}"
+           class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition {{ $kotak === 'masuk' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700' }}">
+            Kotak Masuk
+            @if (auth()->user()->jumlahPesanBelumDibaca() > 0)
+                <span class="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                    {{ auth()->user()->jumlahPesanBelumDibaca() > 9 ? '9+' : auth()->user()->jumlahPesanBelumDibaca() }}
+                </span>
+            @endif
+        </a>
+        <a href="{{ route('pesan.index', array_filter(['kotak' => 'keluar', 'arah' => $arah])) }}"
+           class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition {{ $kotak === 'keluar' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700' }}">
+            Kotak Terkirim
+        </a>
+    </div>
+
     {{-- Filter arah surat: menyaring daftar pesan di halaman ini saja. --}}
     <div class="mb-5 flex flex-wrap items-center gap-2">
-        <a href="{{ route('pesan.index') }}"
+        <a href="{{ route('pesan.index', ['kotak' => $kotak]) }}"
            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition {{ ! $arah ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
             Semua
         </a>
-        <a href="{{ route('pesan.index', ['arah' => 'masuk']) }}"
+        <a href="{{ route('pesan.index', ['kotak' => $kotak, 'arah' => 'masuk']) }}"
            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition {{ $arah === 'masuk' ? 'bg-sky-600 text-white' : 'bg-sky-50 text-sky-700 hover:bg-sky-100' }}">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
             Surat Masuk
         </a>
-        <a href="{{ route('pesan.index', ['arah' => 'keluar']) }}"
+        <a href="{{ route('pesan.index', ['kotak' => $kotak, 'arah' => 'keluar']) }}"
            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition {{ $arah === 'keluar' ? 'bg-violet-600 text-white' : 'bg-violet-50 text-violet-700 hover:bg-violet-100' }}">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
             Surat Keluar
@@ -33,6 +55,19 @@
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2" x-show="selected.length > 0" x-cloak>
             <p class="text-sm text-slate-500"><span x-text="selected.length"></span> pesan dipilih</p>
             <div class="flex items-center gap-2">
+                {{-- BARU: Tombol Tandai Telah Dibaca. Hanya berguna di Kotak
+                     Masuk, karena hanya pesan yang diterima user yang
+                     dihitung sebagai belum dibaca (lihat
+                     User::jumlahPesanBelumDibaca()). --}}
+                @if ($kotak === 'masuk')
+                    <button type="submit" formaction="{{ route('pesan.tandaiDibaca') }}"
+                            class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Tandai Telah Dibaca
+                    </button>
+                @endif
                 <button type="submit" formaction="{{ route('pesan.hapus') }}"
                         onclick="return confirm('Pindahkan pesan yang dipilih ke tempat sampah?')"
                         class="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700">
@@ -55,26 +90,41 @@
         <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <ul class="divide-y divide-slate-100">
                 @forelse ($pesan as $item)
-                    <li class="flex items-center gap-3 px-3">
+                    @php
+                        // BARU: status belum dibaca hanya relevan untuk pesan yang
+                        // diterima user di Kotak Masuk (sesuai dengan hitungan
+                        // badge di navbar).
+                        $belumDibaca = $kotak === 'masuk' && ! $item->is_read;
+                        $lawan = $kotak === 'masuk' ? $item->pengirim : $item->penerima;
+                        $labelLawan = $kotak === 'masuk' ? 'Dari' : 'Kepada';
+                    @endphp
+                    <li class="flex items-center gap-3 px-3 {{ $belumDibaca ? 'bg-brand-50/40' : '' }}">
                         <input type="checkbox" name="ids[]" value="{{ $item->id }}" x-model="selected"
                                class="h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
 
                         <a href="{{ route('pesan.show', $item) }}" class="flex flex-1 items-center gap-4 py-4 transition hover:bg-slate-50">
-                            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">
-                                {{ strtoupper(substr($item->penerima->nama, 0, 1)) }}
+                            <div class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">
+                                {{ strtoupper(substr($lawan->nama, 0, 1)) }}
+                                @if ($belumDibaca)
+                                    {{-- Titik indikator pesan belum dibaca --}}
+                                    <span class="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-rose-500"></span>
+                                @endif
                             </div>
 
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center justify-between gap-3">
-                                    <p class="truncate text-sm font-medium text-slate-700">
-                                        Kepada: {{ $item->penerima->nama }}
+                                    <p class="truncate text-sm {{ $belumDibaca ? 'font-bold text-slate-900' : 'font-medium text-slate-700' }}">
+                                        {{ $labelLawan }}: {{ $lawan->nama }}
                                     </p>
                                     <span class="shrink-0 text-xs text-slate-400">{{ $item->created_at->format('d-m-Y H:i') }}</span>
                                 </div>
-                                <p class="truncate text-sm text-slate-600">
+                                <p class="truncate text-sm {{ $belumDibaca ? 'font-semibold text-slate-800' : 'text-slate-600' }}">
                                     {{ $item->subject }}
                                     @if ($item->surat_id)
                                         <span class="ml-1 inline-flex items-center rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 align-middle">Disposisi</span>
+                                    @endif
+                                    @if ($belumDibaca)
+                                        <span class="ml-1 inline-flex items-center rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600 align-middle">Belum dibaca</span>
                                     @endif
                                 </p>
                                 <p class="truncate text-xs text-slate-400">{{ Str::limit(strip_tags($item->body), 90) }}</p>
@@ -87,7 +137,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
-                            <p class="text-sm">Belum ada pesan terkirim.</p>
+                            <p class="text-sm">{{ $kotak === 'masuk' ? 'Belum ada pesan masuk.' : 'Belum ada pesan terkirim.' }}</p>
                         </div>
                     </li>
                 @endforelse

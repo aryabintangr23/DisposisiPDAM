@@ -53,6 +53,7 @@ Route::middleware('auth')->group(function () {
 
         // Sama seperti di atas: /pesan/sampah harus sebelum /pesan/{pesan}.
         Route::get('/sampah', [MessageController::class, 'sampah'])->name('sampah');
+        Route::post('/tandai-dibaca', [MessageController::class, 'tandaiDibaca'])->name('tandaiDibaca');
         Route::post('/hapus', [MessageController::class, 'hapus'])->name('hapus');
         Route::post('/sampah/pulihkan', [MessageController::class, 'pulihkan'])->name('pulihkan');
         Route::post('/sampah/hapus-permanen', [MessageController::class, 'hapusPermanen'])->name('hapusPermanen');

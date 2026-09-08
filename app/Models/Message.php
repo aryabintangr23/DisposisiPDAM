@@ -99,6 +99,15 @@ class Message extends Model
     }
 
     /**
+     * Scope: Pesan di Kotak Masuk (pesan yang diterima user)
+     */
+    public function scopeMasukUntuk(Builder $query, User $user): Builder
+    {
+        return $query->where('receiver_id', $user->id)
+            ->whereNull('deleted_by_receiver_at');
+    }
+
+    /**
      * Scope: Pesan di Kotak Terkirim
      */
     public function scopeTerkirimUntuk(Builder $query, User $user): Builder
