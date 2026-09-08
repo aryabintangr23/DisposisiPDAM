@@ -65,7 +65,7 @@ class DisposisiController extends Controller
 
         if ($keputusan) {
             $surat->update([
-                'status' => StatusSurat::from($keputusan)
+                'status' => StatusSurat::from($keputusan),
             ]);
         }
 
@@ -74,71 +74,35 @@ class DisposisiController extends Controller
             ->with('status', 'Disposisi berhasil dikirim.');
     }
 
-    /**
-     * Tandai disposisi sedang dalam proses pengerjaan (Dibaca -> Ditindaklanjuti).
-     */
-    public function tindaklanjuti(
+    public function selesaikan(
         Request $request,
         Surat $surat,
-        Disposisi $disposisi
+        Disposisi $disposisi,
+        DisposisiRuleService $rule
     ): RedirectResponse {
         abort_unless(
+            $rule->bolehMenyelesaikan($request->user()),
+            403,
+            'Hanya Staff yang boleh menandai disposisi selesai.'
+        );
+
+        abort_unless(
             $disposisi->surat_id === $surat->id,
             404
         );
 
         abort_unless(
-            $request->user()->sameRoleAs($disposisi->penerima),
+            $disposisi->penerima_id === $request->user()->id,
             403,
-            'Hanya penerima disposisi ini yang boleh menindaklanjuti.'
-        );
-
-        // Hanya diperbolehkan jika status disposisi saat ini sudah "Dibaca"
-        abort_unless(
-            $disposisi->status === StatusDisposisi::Dibaca,
-            400,
-            'Disposisi hanya dapat ditindaklanjuti dari status Dibaca.'
-        );
-
-        $disposisi->update([
-            'status' => StatusDisposisi::Ditindaklanjuti
-        ]);
-
-        return back()
-            ->with('status', 'Disposisi ditandai sedang ditindaklanjuti.');
-    }
-
-    /**
-     * Tandai disposisi selesai (Ditindaklanjuti -> Selesai).
-     */
-    public function selesaikan(Request $request, Surat $surat, Disposisi $disposisi): RedirectResponse
-    {
-        abort_unless(
-            $disposisi->surat_id === $surat->id,
-            404
-        );
-
-        // Cek otorisasi: hanya Staff dengan role yang sama dengan penerima
-        // disposisi ini yang boleh menandai selesai (konsisten dengan cara
-        // otorisasi tindaklanjuti() di atas & tombol di surat/show.blade.php).
-        abort_unless(
-            $request->user()->isStaff() && $request->user()->sameRoleAs($disposisi->penerima),
-            403,
-            'Hanya Staff penerima disposisi ini yang boleh menandai Selesai.'
-        );
-
-        // Hanya diperbolehkan jika status disposisi saat ini "Ditindaklanjuti"
-        abort_unless(
-            $disposisi->status === StatusDisposisi::Ditindaklanjuti,
-            400,
-            'Disposisi hanya dapat ditandai Selesai dari status Ditindaklanjuti.'
+            'Hanya penerima disposisi ini yang boleh menandainya selesai.'
         );
 
         $disposisi->update([
             'status' => StatusDisposisi::Selesai,
         ]);
 
-        return redirect()->back()->with('status', 'Disposisi telah ditandai Selesai.');
+        return back()
+            ->with('status', 'Disposisi ditandai selesai.');
     }
 
     /**
@@ -162,18 +126,19 @@ class DisposisiController extends Controller
         $data = $request->validate([
             'keputusan' => [
                 'required',
-                Rule::in(['diterima', 'ditolak'])
+                Rule::in(['diterima', 'ditolak']),
             ],
             'catatan' => [
                 'nullable',
-                'string'
+                'string',
             ],
         ]);
 
         $dispoTerakhir = $surat->disposisiTerakhir();
 
         abort_unless(
-            $dispoTerakhir && $user->sameRoleAs($dispoTerakhir->penerima),
+            $dispoTerakhir &&
+            $dispoTerakhir->penerima_id === $user->id,
             403,
             'Surat ini belum didisposisikan kepada Anda.'
         );
@@ -213,7 +178,7 @@ class DisposisiController extends Controller
         ]);
 
         $surat->update([
-            'status' => StatusSurat::from($data['keputusan'])
+            'status' => StatusSurat::from($data['keputusan']),
         ]);
 
         $label = $data['keputusan'] === 'diterima'
@@ -229,8 +194,20 @@ class DisposisiController extends Controller
     }
 
     /**
-     * Tombol "Diterima" / "Minta Revisi (Lagi)" khusus Kabag di halaman
-     * detail surat.
+     * Tombol "Diterima" / "Minta Revisi Lagi" khusus Kabag di halaman detail
+     * surat, dipakai untuk mereview revisi yang baru dikirim balik oleh
+     * Staff (status Surat masih "Perlu Revisi", dan disposisi terakhir
+     * adalah Staff -> Kabag ini).
+     *
+     * - "Diterima": revisi sudah sesuai, status Surat dikembalikan ke
+     *   "Baru" (TIDAK lagi "Perlu Revisi") supaya suratnya bisa lanjut ke
+     *   alur berikutnya (mis. diteruskan ke Direktur lewat form "Kirim
+     *   Disposisi Baru" seperti biasa).
+     * - "Revisi": masih belum sesuai, status Surat tetap/kembali "Perlu
+     *   Revisi" dan dikirim ulang ke Staff yang sama.
+     *
+     * Sama seperti keputusan(), aksi ini otomatis membuat satu disposisi
+     * balasan Kabag -> Staff supaya ada jejaknya di Riwayat Disposisi.
      */
     public function reviewRevisi(
         Request $request,
@@ -242,17 +219,17 @@ class DisposisiController extends Controller
         abort_unless(
             $user->isKabag(),
             403,
-            'Hanya Kabag yang boleh menandai surat Diterima/Revisi.'
+            'Hanya Kabag yang boleh menandai revisi Diterima/Revisi.'
         );
 
         $data = $request->validate([
             'keputusan' => [
                 'required',
-                Rule::in(['diterima', 'revisi'])
+                Rule::in(['diterima', 'revisi']),
             ],
             'catatan' => [
                 'nullable',
-                'string'
+                'string',
             ],
         ]);
 
@@ -260,11 +237,10 @@ class DisposisiController extends Controller
 
         abort_unless(
             $dispoTerakhir
-                && $user->sameRoleAs($dispoTerakhir->penerima)
-                && $dispoTerakhir->pengirim?->isStaff()
-                && in_array($surat->status->value, ['baru', 'perlu_revisi'], true),
+                && $dispoTerakhir->penerima_id === $user->id
+                && $surat->status->value === 'perlu_revisi',
             403,
-            'Surat ini tidak sedang menunggu review dari Anda.'
+            'Surat ini tidak sedang menunggu review revisi dari Anda.'
         );
 
         $staff = $dispoTerakhir->pengirim;
@@ -299,18 +275,19 @@ class DisposisiController extends Controller
 
         $label = $data['keputusan'] === 'diterima'
             ? 'Diterima'
-            : 'diminta revisi';
+            : 'diminta revisi kembali';
 
         return redirect()
             ->route('surat.show', $surat)
             ->with(
                 'status',
-                "Surat dari {$staff->nama} ditandai \"{$label}\"."
+                "Revisi dari {$staff->nama} ditandai \"{$label}\"."
             );
     }
 
     /**
-     * Generate PDF lembar disposisi untuk satu record disposisi tertentu.
+     * Generate PDF lembar disposisi untuk satu record disposisi tertentu,
+     * dipakai untuk kebutuhan arsip/cetak.
      */
     public function cetak(
         Request $request,
@@ -324,10 +301,16 @@ class DisposisiController extends Controller
 
         $user = $request->user();
 
+        // Izin cetak disamakan dengan izin buka surat (lihat
+        // SuratController::authorizeAkses): admin, pembuat surat, atau yang
+        // terlibat di salah satu disposisi surat ini boleh mencetak lembar
+        // disposisi apa pun di riwayatnya.
         $terlibat = $user->isAdmin()
-            || $user->sameRoleAs($surat->pembuat)
-            || $user->sameRoleAs($disposisi->pengirim)
-            || $user->sameRoleAs($disposisi->penerima);
+            || $surat->created_by === $user->id
+            || $surat->disposisi()
+                ->where('pengirim_id', $user->id)
+                ->orWhere('penerima_id', $user->id)
+                ->exists();
 
         abort_unless(
             $terlibat,
@@ -337,7 +320,7 @@ class DisposisiController extends Controller
 
         $disposisi->load([
             'pengirim.role',
-            'penerima.role'
+            'penerima.role',
         ]);
 
         $pdf = Pdf::loadView(
@@ -345,6 +328,16 @@ class DisposisiController extends Controller
             compact('surat', 'disposisi')
         )->setPaper('a4');
 
+        /*
+         * Nomor surat TIDAK diubah.
+         *
+         * Nomor surat tetap digunakan secara asli
+         * di dalam isi PDF, termasuk karakter / dan \.
+         *
+         * Untuk nama file PDF, jangan gunakan nomor surat
+         * karena Windows tidak mengizinkan / dan \ dalam
+         * nama file.
+         */
         $namaFile = "lembar-disposisi-{$disposisi->id}.pdf";
 
         return $pdf->stream($namaFile);

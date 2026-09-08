@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-
 class Disposisi extends Model
 {
     protected $table = 'disposisi';
@@ -100,4 +99,3 @@ class Disposisi extends Model
             ->whereDate('batas_waktu', '<', now()->toDateString());
     }
 }
-

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ArahSurat;
 use App\Models\Message;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -10,29 +11,26 @@ use Illuminate\View\View;
 class MessageController extends Controller
 {
     /**
-     * Menampilkan daftar pesan (Kotak Masuk / Terkirim).
+     * Menampilkan daftar pesan terkirim (notifikasi disposisi surat).
+     * Bisa difilter per arah surat (masuk/keluar) lewat query string "arah" —
+     * tetap di halaman Pesan, tidak berpindah ke halaman Surat.
      */
     public function index(Request $request): View
     {
         $user = auth()->user();
-        $tab = $request->get('tab', 'inbox');
 
-        if ($tab === 'sent') {
-            $pesan = Message::terkirimUntuk($user)
-                ->with(['pengirim', 'penerima', 'surat'])
-                ->latest()
-                ->paginate(15)
-                ->appends(['tab' => 'sent']);
-        } else {
-            $pesan = Message::kotakMasukUntuk($user)
-                ->with(['pengirim', 'penerima', 'surat'])
-                ->orderBy('is_read', 'asc')
-                ->latest()
-                ->paginate(15)
-                ->appends(['tab' => 'inbox']);
+        $arah = $request->query('arah');
+        if (! in_array($arah, [ArahSurat::Masuk->value, ArahSurat::Keluar->value], true)) {
+            $arah = null;
         }
 
-        return view('messages.index', compact('pesan', 'tab'));
+        $pesan = Message::terkirimUntuk($user)
+            ->with(['pengirim', 'penerima', 'surat'])
+            ->when($arah, fn ($q) => $q->whereHas('surat', fn ($q2) => $q2->where('arah_surat', $arah)))
+            ->latest()
+            ->paginate(15);
+
+        return view('messages.index', compact('pesan', 'arah'));
     }
 
     /**
@@ -71,7 +69,7 @@ class MessageController extends Controller
             $count++;
         }
 
-        return redirect()->back()->with('success', $count . ' pesan dipindahkan ke tempat sampah.');
+        return redirect()->back()->with('status', $count.' pesan dipindahkan ke tempat sampah.');
     }
 
     /**
@@ -91,7 +89,7 @@ class MessageController extends Controller
             $message->pulihkanUntuk($user);
         }
 
-        return redirect()->back()->with('success', count($messages) . ' pesan berhasil dipulihkan.');
+        return redirect()->back()->with('status', count($messages).' pesan berhasil dipulihkan.');
     }
 
     /**
@@ -110,30 +108,7 @@ class MessageController extends Controller
             ->sampahUntuk($user)
             ->delete();
 
-        return redirect()->back()->with('success', count($request->ids) . ' pesan dihapus permanen.');
-    }
-
-    /**
-     * Menandai pesan yang dipilih sebagai sudah dibaca.
-     */
-    public function tandaiDibaca(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'ids' => 'required|array',
-            'ids.*' => 'exists:messages,id',
-        ]);
-
-        $user = auth()->user();
-
-        $messages = Message::whereIn('id', $request->ids)
-            ->where('receiver_id', $user->id)
-            ->get();
-
-        foreach ($messages as $message) {
-            $message->tandaiSudahDibaca();
-        }
-
-        return redirect()->back()->with('success', count($messages) . ' pesan ditandai sudah dibaca.');
+        return redirect()->back()->with('status', count($request->ids).' pesan dihapus permanen.');
     }
 
     /**

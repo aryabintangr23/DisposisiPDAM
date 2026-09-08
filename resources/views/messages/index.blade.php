@@ -3,57 +3,29 @@
 @section('title', 'Pesan')
 
 @section('content')
-    <div class="mt-6 mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h2 class="text-2xl font-bold text-slate-800">Pesan</h2>
-            <p class="mt-1 text-sm text-slate-500">Kirim dan terima pesan internal antar pengguna.</p>
-        </div>
-
-        <div class="flex items-center gap-2">
-            <a href="{{ route('pesan.create') }}"
-               class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Tulis Pesan
-            </a>
-        </div>
+    <div class="mt-6 mb-6">
+        <h2 class="text-2xl font-bold text-slate-800">Pesan</h2>
+        <p class="mt-1 text-sm text-slate-500">Pesan otomatis dari notifikasi disposisi surat.</p>
     </div>
 
-    <div class="mb-4 flex gap-1 border-b border-slate-200">
-        <a href="{{ route('pesan.index', ['tab' => 'inbox']) }}"
-           class="border-b-2 px-4 py-2.5 text-sm font-semibold transition
-                  {{ $tab === 'inbox' ? 'border-brand-700 text-brand-700' : 'border-transparent text-slate-500 hover:text-slate-700' }}">
-            Kotak Masuk
-        </a>
-        <a href="{{ route('pesan.index', ['tab' => 'sent']) }}"
-           class="border-b-2 px-4 py-2.5 text-sm font-semibold transition
-                  {{ $tab === 'sent' ? 'border-brand-700 text-brand-700' : 'border-transparent text-slate-500 hover:text-slate-700' }}">
-            Terkirim
-        </a>
-    </div>
-
-    {{-- Pintasan ke daftar Surat Masuk / Surat Keluar dari halaman Pesan,
-         karena banyak pesan di sini berisi notifikasi disposisi surat. --}}
+    {{-- Filter arah surat: menyaring daftar pesan di halaman ini saja. --}}
     <div class="mb-5 flex flex-wrap items-center gap-2">
-        <a href="{{ route('surat.index', ['arah' => 'masuk']) }}"
-           class="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100">
+        <a href="{{ route('pesan.index') }}"
+           class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition {{ ! $arah ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+            Semua
+        </a>
+        <a href="{{ route('pesan.index', ['arah' => 'masuk']) }}"
+           class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition {{ $arah === 'masuk' ? 'bg-sky-600 text-white' : 'bg-sky-50 text-sky-700 hover:bg-sky-100' }}">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
             Surat Masuk
         </a>
-        <a href="{{ route('surat.index', ['arah' => 'keluar']) }}"
-           class="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-100">
+        <a href="{{ route('pesan.index', ['arah' => 'keluar']) }}"
+           class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition {{ $arah === 'keluar' ? 'bg-violet-600 text-white' : 'bg-violet-50 text-violet-700 hover:bg-violet-100' }}">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
             Surat Keluar
         </a>
     </div>
 
-    {{--
-        Satu form dipakai bersama untuk dua aksi ("Tandai Sudah Dibaca" &
-        "Pindahkan ke Sampah") lewat atribut formaction pada masing-masing
-        tombol, supaya checkbox terpilih (state Alpine `selected`) tidak
-        perlu diduplikasi ke form terpisah.
-    --}}
     <form method="POST" action="{{ route('pesan.hapus') }}"
           x-data="{ selected: [], allIds: {{ $pesan->pluck('id')->map(fn ($id) => (string) $id)->toJson() }} }">
         @csrf
@@ -61,16 +33,6 @@
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2" x-show="selected.length > 0" x-cloak>
             <p class="text-sm text-slate-500"><span x-text="selected.length"></span> pesan dipilih</p>
             <div class="flex items-center gap-2">
-                @if ($tab === 'inbox')
-                    {{-- Menandai dibaca hanya masuk akal untuk pesan yang diterima (Kotak Masuk). --}}
-                    <button type="submit" formaction="{{ route('pesan.tandaiDibaca') }}"
-                            class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Tandai Sudah Dibaca
-                    </button>
-                @endif
                 <button type="submit" formaction="{{ route('pesan.hapus') }}"
                         onclick="return confirm('Pindahkan pesan yang dipilih ke tempat sampah?')"
                         class="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700">
@@ -92,42 +54,24 @@
 
         <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <ul class="divide-y divide-slate-100">
-                @php $groupSebelumnya = null; @endphp
                 @forelse ($pesan as $item)
-                    @php $groupSekarang = ! $item->is_read ? 'belum' : 'sudah'; @endphp
-
-                    {{-- Pesan belum dibaca selalu tampil di atas, yang sudah dibaca turun ke bawah --}}
-                    @if ($groupSekarang !== $groupSebelumnya)
-                        <li class="bg-slate-50 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                            {{ $groupSekarang === 'belum' ? 'Belum Dibaca' : 'Sudah Dibaca' }}
-                        </li>
-                        @php $groupSebelumnya = $groupSekarang; @endphp
-                    @endif
-
                     <li class="flex items-center gap-3 px-3">
                         <input type="checkbox" name="ids[]" value="{{ $item->id }}" x-model="selected"
                                class="h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
 
                         <a href="{{ route('pesan.show', $item) }}" class="flex flex-1 items-center gap-4 py-4 transition hover:bg-slate-50">
-                            {{-- Titik indikator belum dibaca --}}
-                            <span class="flex h-2.5 w-2.5 shrink-0 items-center justify-center">
-                                @if (! $item->is_read)
-                                    <span class="h-2.5 w-2.5 rounded-full bg-brand-600"></span>
-                                @endif
-                            </span>
-
                             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">
-                                {{ strtoupper(substr($tab === 'inbox' ? $item->pengirim->nama : $item->penerima->nama, 0, 1)) }}
+                                {{ strtoupper(substr($item->penerima->nama, 0, 1)) }}
                             </div>
 
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center justify-between gap-3">
-                                    <p class="truncate text-sm {{ ! $item->is_read ? 'font-bold text-slate-900' : 'font-medium text-slate-700' }}">
-                                        {{ $tab === 'inbox' ? $item->pengirim->nama : 'Kepada: '.$item->penerima->nama }}
+                                    <p class="truncate text-sm font-medium text-slate-700">
+                                        Kepada: {{ $item->penerima->nama }}
                                     </p>
                                     <span class="shrink-0 text-xs text-slate-400">{{ $item->created_at->format('d-m-Y H:i') }}</span>
                                 </div>
-                                <p class="truncate text-sm {{ ! $item->is_read ? 'font-semibold text-slate-800' : 'text-slate-600' }}">
+                                <p class="truncate text-sm text-slate-600">
                                     {{ $item->subject }}
                                     @if ($item->surat_id)
                                         <span class="ml-1 inline-flex items-center rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 align-middle">Disposisi</span>
@@ -143,7 +87,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
-                            <p class="text-sm">{{ $tab === 'inbox' ? 'Belum ada pesan masuk.' : 'Belum ada pesan terkirim.' }}</p>
+                            <p class="text-sm">Belum ada pesan terkirim.</p>
                         </div>
                     </li>
                 @endforelse

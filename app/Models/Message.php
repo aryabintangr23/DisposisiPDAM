@@ -77,6 +77,7 @@ class Message extends Model
         // Jika kedua belah pihak sudah menghapus, hapus permanen dari DB
         if ($this->deleted_by_sender_at && $this->deleted_by_receiver_at) {
             $this->delete();
+
             return true;
         }
 
@@ -98,16 +99,7 @@ class Message extends Model
     }
 
     /**
-     * Scope: Pesan di Kotak Masuk
-     */
-    public function scopeKotakMasukUntuk(Builder $query, User $user): Builder
-    {
-        return $query->where('receiver_id', $user->id)
-            ->whereNull('deleted_by_receiver_at');
-    }
-
-    /**
-     * Scope: Pesan Terkirim
+     * Scope: Pesan di Kotak Terkirim
      */
     public function scopeTerkirimUntuk(Builder $query, User $user): Builder
     {
@@ -122,7 +114,7 @@ class Message extends Model
     {
         return $query->where(function ($q) use ($user) {
             $q->where(fn ($sub) => $sub->where('sender_id', $user->id)->whereNotNull('deleted_by_sender_at'))
-              ->orWhere(fn ($sub) => $sub->where('receiver_id', $user->id)->whereNotNull('deleted_by_receiver_at'));
+                ->orWhere(fn ($sub) => $sub->where('receiver_id', $user->id)->whereNotNull('deleted_by_receiver_at'));
         });
     }
 }
