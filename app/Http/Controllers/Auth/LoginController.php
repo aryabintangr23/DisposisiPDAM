@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\LogAktivitas;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -42,6 +43,11 @@ class LoginController extends Controller
             // Catat percobaan gagal
             RateLimiter::hit($throttleKey, 60);
 
+            LogAktivitas::catat(
+                'login_gagal',
+                "Percobaan login gagal untuk email \"{$credentials['email']}\".",
+            );
+
             return back()->withErrors(['email' => 'Email atau password salah.'])->onlyInput('email');
         }
 
@@ -49,6 +55,8 @@ class LoginController extends Controller
         RateLimiter::clear($throttleKey);
 
         $request->session()->regenerate();
+
+        LogAktivitas::catat('login_berhasil', "{$request->user()->nama} berhasil login.");
 
         // BARU: tandai supaya pop-up notifikasi pesan (lihat layouts.app)
         // ditampilkan sekali di halaman pertama setelah login berhasil.
@@ -61,6 +69,8 @@ class LoginController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
+        LogAktivitas::catat('logout', "{$request->user()->nama} logout.");
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

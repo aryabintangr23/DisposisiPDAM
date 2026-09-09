@@ -7,6 +7,7 @@ use App\Enums\Prioritas;
 use App\Enums\StatusDisposisi;
 use App\Http\Requests\StoreSuratRequest;
 use App\Http\Requests\UpdateSuratRequest;
+use App\Models\LogAktivitas;
 use App\Models\Surat;
 use App\Models\User;
 use App\Services\DisposisiRuleService;
@@ -49,7 +50,7 @@ class SuratController extends Controller
         // Lihat Surat::scopeUntukRole() untuk detail cakupannya.
         $scope = fn () => Surat::untukRole($user);
 
-        $query = $scope()->with('disposisi');
+        $query = $scope()->with('disposisi.pengirim.role', 'disposisi.penerima.role');
 
         if ($tanggal) {
             $query->whereDate('tanggal_surat', $tanggal);
@@ -159,9 +160,15 @@ class SuratController extends Controller
             'status' => StatusDisposisi::Terkirim,
         ]);
 
+        LogAktivitas::catat(
+            'surat_dibuat',
+            "{$request->user()->nama} membuat surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) dan mengirim disposisi awal ke {$penerima->nama}.",
+            'surat',
+            $surat->id
+        );
+
         return redirect()->route('surat.show', $surat)->with('status', 'Surat dan lembar disposisi berhasil dibuat.');
     }
-
     public function edit(Request $request, Surat $surat): View
     {
         $this->authorizeEdit($request, $surat);
@@ -204,6 +211,13 @@ class SuratController extends Controller
             }
         }
 
+        LogAktivitas::catat(
+            'surat_diubah',
+            "{$request->user()->nama} mengubah data surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}).",
+            'surat',
+            $surat->id
+        );
+
         return redirect()->route('surat.show', $surat)->with('status', 'Data surat berhasil diperbarui.');
     }
 
@@ -232,7 +246,13 @@ class SuratController extends Controller
 
         $query = Surat::untukRole($request->user())->whereIn('id', $data['ids']);
         $jumlah = $query->count();
+        $daftarNomor = $query->pluck('nomor_surat')->implode(', ');
         $query->delete();
+
+        LogAktivitas::catat(
+            'surat_dihapus',
+            "{$request->user()->nama} memindahkan {$jumlah} surat ke tempat sampah ({$daftarNomor})."
+        );
 
         return redirect()->route('surat.index')->with('status', "{$jumlah} surat dipindahkan ke tempat sampah.");
     }
@@ -262,6 +282,11 @@ class SuratController extends Controller
         $jumlah = $query->count();
         $query->restore();
 
+        LogAktivitas::catat(
+            'surat_dipulihkan',
+            "{$request->user()->nama} memulihkan {$jumlah} surat dari tempat sampah."
+        );
+
         return redirect()->route('surat.sampah')->with('status', "{$jumlah} surat dipulihkan.");
     }
 
@@ -286,6 +311,11 @@ class SuratController extends Controller
             }
             $surat->forceDelete();
         }
+
+        LogAktivitas::catat(
+            'surat_dihapus_permanen',
+            "{$request->user()->nama} menghapus permanen {$suratList->count()} surat beserta lampirannya."
+        );
 
         return redirect()->route('surat.sampah')->with('status', $suratList->count().' surat dihapus permanen.');
     }

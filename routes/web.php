@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisposisiController;
+use App\Http\Controllers\LogAktivitasController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SuratController;
@@ -84,5 +85,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/{user}/edit', [UserController::class, 'edit'])->name('edit');
         Route::put('/{user}', [UserController::class, 'update'])->name('update');
         Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
+    });
+
+    // Menu Admin: Log Aktivitas. Hanya user berperan Admin.
+    Route::prefix('log-aktivitas')->name('logAktivitas.')->middleware('admin')->group(function () {
+        Route::get('/', [LogAktivitasController::class, 'index'])->name('index');
+        Route::get('/data', [LogAktivitasController::class, 'data'])->name('data');
     });
 });

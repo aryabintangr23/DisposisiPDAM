@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
+use App\Models\LogAktivitas;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -56,12 +57,19 @@ class UserController extends Controller
         $data = $request->validated();
         abort_if($this->roleIsAdmin($data['role_id']), 403, 'Hanya boleh ada satu Admin.');
 
-        User::create([
+        $user = User::create([
             'nama' => $data['nama'],
             'email' => $data['email'],
             'role_id' => $data['role_id'],
             'password' => Hash::make($data['password']),
         ]);
+
+        LogAktivitas::catat(
+            'user_dibuat',
+            "{$request->user()->nama} (Admin) menambahkan pengguna baru \"{$user->nama}\" ({$user->email}).",
+            'user',
+            $user->id
+        );
 
         return redirect()->route('pengguna.index')->with('status', 'User baru berhasil ditambahkan.');
     }
@@ -90,6 +98,13 @@ class UserController extends Controller
             $user->update(['password' => Hash::make($data['password'])]);
         }
 
+        LogAktivitas::catat(
+            'user_diubah',
+            "{$request->user()->nama} (Admin) memperbarui data pengguna \"{$user->nama}\" ({$user->email}).",
+            'user',
+            $user->id
+        );
+
         return redirect()->route('pengguna.index')->with('status', 'Data user berhasil diperbarui.');
     }
 
@@ -97,7 +112,15 @@ class UserController extends Controller
     {
         abort_if($user->id === $request->user()->id, 403, 'Anda tidak bisa menghapus akun Admin sendiri.');
 
+        $namaUser = $user->nama;
+        $emailUser = $user->email;
+
         $user->delete();
+
+        LogAktivitas::catat(
+            'user_dihapus',
+            "{$request->user()->nama} (Admin) menghapus pengguna \"{$namaUser}\" ({$emailUser})."
+        );
 
         return redirect()->route('pengguna.index')->with('status', 'User berhasil dihapus.');
     }

@@ -7,6 +7,7 @@ use App\Enums\StatusDisposisi;
 use App\Enums\StatusSurat;
 use App\Http\Requests\StoreDisposisiRequest;
 use App\Models\Disposisi;
+use App\Models\LogAktivitas;
 use App\Models\Message;
 use App\Models\Surat;
 use App\Models\User;
@@ -81,6 +82,13 @@ class DisposisiController extends Controller
             ]);
         }
 
+        LogAktivitas::catat(
+            'disposisi_dikirim',
+            "{$pengirim->nama} mengirim disposisi surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) ke {$penerima->nama}.",
+            'surat',
+            $surat->id
+        );
+
         return redirect()
             ->route('surat.show', $surat)
             ->with('status', 'Disposisi berhasil dikirim.');
@@ -112,6 +120,13 @@ class DisposisiController extends Controller
         $disposisi->update([
             'status' => StatusDisposisi::Selesai,
         ]);
+
+        LogAktivitas::catat(
+            'disposisi_selesai',
+            "{$request->user()->nama} menandai disposisi selesai untuk surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}).",
+            'surat',
+            $surat->id
+        );
 
         return back()
             ->with('status', 'Disposisi ditandai selesai.');
@@ -196,6 +211,13 @@ class DisposisiController extends Controller
         $label = $data['keputusan'] === 'diterima'
             ? 'Diterima'
             : 'Ditolak';
+
+        LogAktivitas::catat(
+            'surat_keputusan_'.$data['keputusan'],
+            "{$user->nama} (Direktur) menandai surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) \"{$label}\" dan mengirimnya kembali ke {$kabag->nama}.",
+            'surat',
+            $surat->id
+        );
 
         return redirect()
             ->route('surat.show', $surat)
@@ -325,6 +347,13 @@ class DisposisiController extends Controller
             $pesanStatus = "Surat dikirim kembali ke {$staff->nama} untuk direvisi.";
         }
 
+        LogAktivitas::catat(
+            'review_baru_'.$data['keputusan'],
+            "{$user->nama} (Kabag) me-review surat baru \"{$surat->perihal}\" (No. {$surat->nomor_surat}) dari {$staff->nama}: {$pesanStatus}",
+            'surat',
+            $surat->id
+        );
+
         return redirect()
             ->route('surat.show', $surat)
             ->with('status', $pesanStatus);
@@ -336,15 +365,18 @@ class DisposisiController extends Controller
      * Staff (status Surat masih "Perlu Revisi", dan disposisi terakhir
      * adalah Staff -> Kabag ini).
      *
-     * - "Diterima": revisi sudah sesuai, status Surat dikembalikan ke
-     *   "Baru" (TIDAK lagi "Perlu Revisi") supaya suratnya bisa lanjut ke
-     *   alur berikutnya (mis. diteruskan ke Direktur lewat form "Kirim
-     *   Disposisi Baru" seperti biasa).
+     * - "Diterima": revisi sudah sesuai. Sama seperti reviewBaru() saat
+     *   Approve surat baru, surat ini otomatis diteruskan (dibuat satu
+     *   disposisi baru Kabag -> Direktur) tanpa Kabag perlu membuka form
+     *   "Kirim Disposisi Baru" secara manual, dan Staff pengirim revisi
+     *   diberi notifikasi terpisah lewat menu Pesan bahwa revisinya
+     *   diterima & surat diteruskan ke Direktur. Status Surat tetap "baru"
+     *   (dipakai bersama $sedangDitindaklanjuti di halaman surat.show untuk
+     *   menyembunyikan form kirim disposisi Staff & menampilkan label
+     *   "Sedang Ditindaklanjuti").
      * - "Revisi": masih belum sesuai, status Surat tetap/kembali "Perlu
-     *   Revisi" dan dikirim ulang ke Staff yang sama.
-     *
-     * Sama seperti keputusan(), aksi ini otomatis membuat satu disposisi
-     * balasan Kabag -> Staff supaya ada jejaknya di Riwayat Disposisi.
+     *   Revisi" dan dikirim ulang sebagai disposisi balasan Kabag -> Staff
+     *   yang sama, seperti sebelumnya.
      */
     public function reviewRevisi(
         Request $request,
@@ -381,45 +413,88 @@ class DisposisiController extends Controller
         );
 
         $staff = $dispoTerakhir->pengirim;
-
-        abort_unless(
-            $rule->bolehDisposisi($user, $staff),
-            403,
-            'Tujuan pengembalian disposisi tidak sesuai alur yang diizinkan.'
-        );
-
         $prioritas = Prioritas::Biasa;
         $tanggalDisposisi = now();
 
-        $surat->disposisi()->create([
-            'pengirim_id' => $user->id,
-            'penerima_id' => $staff->id,
-            'tanggal_disposisi' => $tanggalDisposisi,
-            'prioritas' => $prioritas,
-            'batas_waktu' => $rule->hitungBatasWaktu(
-                $tanggalDisposisi,
-                $prioritas
-            ),
-            'instruksi' => $data['catatan'] ?? null,
-            'status' => StatusDisposisi::Terkirim,
-        ]);
+        if ($data['keputusan'] === 'diterima') {
+            $direktur = User::whereHas(
+                'role',
+                fn ($q) => $q->where('nama_role', 'direktur')
+            )->first();
 
-        $surat->update([
-            'status' => $data['keputusan'] === 'diterima'
-                ? StatusSurat::Baru
-                : StatusSurat::PerluRevisi,
-        ]);
+            abort_unless(
+                $direktur,
+                422,
+                'Tidak ada akun Direktur yang terdaftar untuk meneruskan surat ini.'
+            );
 
-        $label = $data['keputusan'] === 'diterima'
-            ? 'Diterima'
-            : 'diminta revisi kembali';
+            abort_unless(
+                $rule->bolehDisposisi($user, $direktur),
+                403,
+                'Tujuan penerusan disposisi tidak sesuai alur yang diizinkan.'
+            );
+
+            $surat->disposisi()->create([
+                'pengirim_id' => $user->id,
+                'penerima_id' => $direktur->id,
+                'tanggal_disposisi' => $tanggalDisposisi,
+                'prioritas' => $prioritas,
+                'batas_waktu' => $rule->hitungBatasWaktu($tanggalDisposisi, $prioritas),
+                'instruksi' => $data['catatan'] ?? null,
+                'status' => StatusDisposisi::Terkirim,
+            ]);
+
+            // Disposisi di atas otomatis mengirim Pesan ke Direktur (lihat
+            // Disposisi::booted()), bukan ke Staff — jadi Staff pengirim
+            // revisi perlu diberi tahu terpisah bahwa revisinya diterima.
+            Message::create([
+                'sender_id' => $user->id,
+                'receiver_id' => $staff->id,
+                'surat_id' => $surat->id,
+                'subject' => 'Revisi Diterima: '.$surat->nomor_surat,
+                'body' => "Revisi surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) yang Anda kirim telah "
+                    ."diterima oleh {$user->nama} (Kabag) dan otomatis diteruskan ke {$direktur->nama} (Direktur).",
+            ]);
+
+            $surat->update([
+                'status' => StatusSurat::Baru,
+            ]);
+
+            $pesanStatus = "Revisi dari {$staff->nama} ditandai \"Diterima\" dan surat otomatis diteruskan ke {$direktur->nama} (Direktur).";
+        } else {
+            abort_unless(
+                $rule->bolehDisposisi($user, $staff),
+                403,
+                'Tujuan pengembalian disposisi tidak sesuai alur yang diizinkan.'
+            );
+
+            $surat->disposisi()->create([
+                'pengirim_id' => $user->id,
+                'penerima_id' => $staff->id,
+                'tanggal_disposisi' => $tanggalDisposisi,
+                'prioritas' => $prioritas,
+                'batas_waktu' => $rule->hitungBatasWaktu($tanggalDisposisi, $prioritas),
+                'instruksi' => $data['catatan'] ?? null,
+                'status' => StatusDisposisi::Terkirim,
+            ]);
+
+            $surat->update([
+                'status' => StatusSurat::PerluRevisi,
+            ]);
+
+            $pesanStatus = "Revisi dari {$staff->nama} ditandai \"diminta revisi kembali\".";
+        }
+
+        LogAktivitas::catat(
+            'review_revisi_'.$data['keputusan'],
+            "{$user->nama} (Kabag) me-review revisi surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) dari {$staff->nama}: {$pesanStatus}",
+            'surat',
+            $surat->id
+        );
 
         return redirect()
             ->route('surat.show', $surat)
-            ->with(
-                'status',
-                "Revisi dari {$staff->nama} ditandai \"{$label}\"."
-            );
+            ->with('status', $pesanStatus);
     }
 
     /**

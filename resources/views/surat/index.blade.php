@@ -157,6 +157,18 @@
                                     'tunggu_petunjuk' => 'bg-blue-500',
                                     default => 'bg-slate-300',
                                 };
+
+                                // Sama seperti di surat.show: kalau disposisi
+                                // terakhir surat ini adalah Kabag -> Direktur
+                                // dan statusnya masih "baru" (sudah di-Approve
+                                // Kabag, menunggu keputusan Direktur), label
+                                // yang ditampilkan diganti jadi "Sedang
+                                // Ditindaklanjuti" supaya konsisten.
+                                $dispoTerakhirItem = $item->disposisi->last();
+                                $itemSedangDitindaklanjuti = $item->status->value === 'baru'
+                                    && $dispoTerakhirItem
+                                    && $dispoTerakhirItem->pengirim?->isKabag()
+                                    && $dispoTerakhirItem->penerima?->isDirektur();
                             @endphp
                             <tr class="transition hover:bg-slate-50">
                                 @if ($bisaHapusSurat)
@@ -189,16 +201,22 @@
                                 </td>
                                 <td class="whitespace-nowrap px-5 py-3.5">
                                     @php
-                                        $statusColor = match ($item->status->value) {
-                                            'baru' => 'bg-amber-50 text-amber-700',
-                                            'diterima' => 'bg-emerald-50 text-emerald-700',
-                                            'ditolak' => 'bg-rose-50 text-rose-700',
-                                            'perlu_revisi' => 'bg-orange-50 text-orange-700',
-                                            default => 'bg-slate-100 text-slate-600',
-                                        };
+                                        $statusColor = $itemSedangDitindaklanjuti
+                                            ? 'bg-sky-50 text-sky-700'
+                                            : match ($item->status->value) {
+                                                'baru' => 'bg-amber-50 text-amber-700',
+                                                'diterima' => 'bg-emerald-50 text-emerald-700',
+                                                'ditolak' => 'bg-rose-50 text-rose-700',
+                                                'perlu_revisi' => 'bg-orange-50 text-orange-700',
+                                                default => 'bg-slate-100 text-slate-600',
+                                            };
+
+                                        $statusLabelItem = $itemSedangDitindaklanjuti
+                                            ? 'Sedang Ditindaklanjuti'
+                                            : $item->status->label();
                                     @endphp
                                     <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium {{ $statusColor }}">
-                                        {{ $item->status->label() }}
+                                        {{ $statusLabelItem }}
                                     </span>
                                 </td>
                                 <td class="whitespace-nowrap px-5 py-3.5 text-right">
