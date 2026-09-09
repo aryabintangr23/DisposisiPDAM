@@ -10,6 +10,7 @@ use App\Http\Requests\UpdateSuratRequest;
 use App\Models\Surat;
 use App\Models\User;
 use App\Services\DisposisiRuleService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -107,16 +108,13 @@ class SuratController extends Controller
 
         $data = $request->validated();
 
-        // Soft warning: Cek duplikasi nomor agenda (termasuk yang di-soft delete)
-        if (! empty($data['nomor_agenda'])) {
-            $agendaExists = Surat::withTrashed()
-                ->where('nomor_agenda', $data['nomor_agenda'])
-                ->exists();
-
-            if ($agendaExists) {
-                session()->flash('warning', "Peringatan: Nomor agenda '{$data['nomor_agenda']}' sudah pernah digunakan pada surat lain.");
-            }
-        }
+        // Soft warning: cek duplikasi nomor surat & nomor agenda (termasuk
+        // yang di-soft delete). Ini cuma peringatan (surat tetap disimpan),
+        // supaya tidak menghalangi kasus sah seperti nomor agenda ganda
+        // antar unit — lihat catatan di migration. Pengecekan yang sama
+        // juga tersedia lewat cekNomor() untuk AJAX, dicek langsung di form
+        // saat user masih mengetik, sebelum tombol kirim ditekan.
+        $this->tandaiJikaNomorSudahDipakai($data['nomor_surat'], $data['nomor_agenda'] ?? null);
 
         $surat = Surat::create([
             'created_by' => $request->user()->id,
@@ -178,6 +176,8 @@ class SuratController extends Controller
         $this->authorizeEdit($request, $surat);
 
         $data = $request->validated();
+
+        $this->tandaiJikaNomorSudahDipakai($data['nomor_surat'], $data['nomor_agenda'] ?? null, $surat->id);
 
         $surat->update([
             'arah_surat' => $data['arah_surat'],
@@ -338,6 +338,79 @@ class SuratController extends Controller
                 ->exists();
 
         abort_unless($terlibat, 403, 'Anda tidak memiliki akses ke surat ini.');
+    }
+
+    /**
+     * BARU: dipanggil lewat AJAX (fetch) dari form input & edit surat setiap
+     * kali field "Nomor Surat" / "Nomor Agenda" selesai diketik (debounced),
+     * supaya peringatan "sudah digunakan" muncul SAAT INPUT, sebelum user
+     * klik kirim — bukan sesudahnya seperti sebelumnya (yang berisiko bikin
+     * user mengira gagal lalu mengirim ulang formnya, jadi dobel).
+     *
+     * Query param "kecuali" (opsional): ID surat yang sedang diedit, supaya
+     * surat itu sendiri tidak dianggap "bentrok" dengan nomornya sendiri.
+     */
+    public function cekNomor(Request $request): JsonResponse
+    {
+        $nomorSurat = trim((string) $request->query('nomor_surat', ''));
+        $nomorAgenda = trim((string) $request->query('nomor_agenda', ''));
+        $kecuali = $request->query('kecuali');
+
+        $cekDuplikat = function (string $kolom, string $nilai) use ($kecuali) {
+            if ($nilai === '') {
+                return false;
+            }
+
+            return Surat::withTrashed()
+                ->where($kolom, $nilai)
+                ->when($kecuali, fn ($q) => $q->where('id', '!=', $kecuali))
+                ->exists();
+        };
+
+        return response()->json([
+            'nomor_surat' => [
+                'sudah_dipakai' => $cekDuplikat('nomor_surat', $nomorSurat),
+            ],
+            'nomor_agenda' => [
+                'sudah_dipakai' => $cekDuplikat('nomor_agenda', $nomorAgenda),
+            ],
+        ]);
+    }
+
+    /**
+     * Soft warning (tidak menghalangi simpan) kalau nomor surat dan/atau
+     * nomor agenda yang diinput sudah pernah dipakai surat lain — dipanggil
+     * dari store()/update() sebagai jaring pengaman sisi server, senada
+     * dengan pengecekan real-time di cekNomor().
+     */
+    private function tandaiJikaNomorSudahDipakai(string $nomorSurat, ?string $nomorAgenda, ?int $kecualiId = null): void
+    {
+        $pesan = [];
+
+        $suratDuplikat = Surat::withTrashed()
+            ->where('nomor_surat', $nomorSurat)
+            ->when($kecualiId, fn ($q) => $q->where('id', '!=', $kecualiId))
+            ->exists();
+
+        if ($suratDuplikat) {
+            $pesan[] = "Nomor surat '{$nomorSurat}'";
+        }
+
+        if (! empty($nomorAgenda)) {
+            $agendaDuplikat = Surat::withTrashed()
+                ->where('nomor_agenda', $nomorAgenda)
+                ->when($kecualiId, fn ($q) => $q->where('id', '!=', $kecualiId))
+                ->exists();
+
+            if ($agendaDuplikat) {
+                $pesan[] = "Nomor agenda '{$nomorAgenda}'";
+            }
+        }
+
+        if (! empty($pesan)) {
+            $daftar = implode(' dan ', $pesan);
+            session()->flash('warning', "Peringatan: {$daftar} sudah pernah digunakan pada surat lain.");
+        }
     }
 
     /**

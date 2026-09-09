@@ -71,10 +71,10 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-4">
 
     {{-- ============ KOLOM UTAMA: DAFTAR SURAT ============ --}}
-    <div class="lg:col-span-3">
+    <div class="xl:col-span-3">
 
     @if ($tanggal || $cari)
         <div class="mb-4 flex flex-wrap gap-2">
@@ -241,7 +241,7 @@
     {{-- /kolom utama --}}
 
     {{-- ============ KOLOM SAMPING: KALENDER ============ --}}
-    <div class="lg:col-span-1">
+    <div class="xl:col-span-1">
         @php
             $bulanAwal = \Carbon\Carbon::createFromFormat('Y-m', $bulan)->startOfMonth();
             $bulanSebelumnya = $bulanAwal->copy()->subMonth()->format('Y-m');

@@ -98,7 +98,7 @@
     </div>
 
     {{-- ============ GRAFIK ============ --}}
-    <div class="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
         {{-- Grafik jumlah surat per bulan (6 bulan terakhir) --}}
         <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div class="flex items-center justify-between gap-3">

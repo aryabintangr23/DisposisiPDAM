@@ -7,6 +7,7 @@ use App\Enums\StatusDisposisi;
 use App\Enums\StatusSurat;
 use App\Http\Requests\StoreDisposisiRequest;
 use App\Models\Disposisi;
+use App\Models\Message;
 use App\Models\Surat;
 use App\Models\User;
 use App\Services\DisposisiRuleService;
@@ -202,6 +203,131 @@ class DisposisiController extends Controller
                 'status',
                 "Surat ditandai \"{$label}\" dan dikirim kembali ke {$kabag->nama}."
             );
+    }
+
+    /**
+     * Tombol "Approve" / "Revisi" khusus Kabag di halaman detail surat,
+     * dipakai saat Kabag pertama kali menerima surat baru dari Staff
+     * (status Surat masih "Baru", dan disposisi terakhir adalah
+     * Staff -> Kabag ini).
+     *
+     * - "Approve": surat disetujui. Staff pengirim otomatis diberi
+     *   notifikasi lewat menu Pesan bahwa suratnya disetujui, dan surat
+     *   otomatis diteruskan (dibuat satu disposisi baru Kabag -> Direktur)
+     *   tanpa Kabag perlu memilih penerima secara manual lewat form "Kirim
+     *   Disposisi Baru".
+     * - "Revisi": surat dikirim balik ke Staff yang sama sebagai disposisi
+     *   balasan, dan status Surat diubah menjadi "Perlu Revisi" (Staff akan
+     *   melihat kartu "Perlu Revisi" di halaman surat ini dan bisa langsung
+     *   edit & kirim ulang).
+     */
+    public function reviewBaru(
+        Request $request,
+        Surat $surat,
+        DisposisiRuleService $rule
+    ): RedirectResponse {
+        $user = $request->user();
+
+        abort_unless(
+            $user->isKabag(),
+            403,
+            'Hanya Kabag yang boleh menandai surat Approve/Revisi.'
+        );
+
+        $data = $request->validate([
+            'keputusan' => [
+                'required',
+                Rule::in(['approve', 'revisi']),
+            ],
+            'catatan' => [
+                'nullable',
+                'string',
+            ],
+        ]);
+
+        $dispoTerakhir = $surat->disposisiTerakhir();
+
+        abort_unless(
+            $dispoTerakhir
+                && $dispoTerakhir->penerima_id === $user->id
+                && $dispoTerakhir->pengirim?->isStaff()
+                && $surat->status->value === 'baru',
+            403,
+            'Surat ini tidak sedang menunggu review Anda sebagai Kabag.'
+        );
+
+        $staff = $dispoTerakhir->pengirim;
+        $prioritas = $dispoTerakhir->prioritas;
+        $tanggalDisposisi = now();
+
+        if ($data['keputusan'] === 'approve') {
+            $direktur = User::whereHas(
+                'role',
+                fn ($q) => $q->where('nama_role', 'direktur')
+            )->first();
+
+            abort_unless(
+                $direktur,
+                422,
+                'Tidak ada akun Direktur yang terdaftar untuk meneruskan surat ini.'
+            );
+
+            abort_unless(
+                $rule->bolehDisposisi($user, $direktur),
+                403,
+                'Tujuan penerusan disposisi tidak sesuai alur yang diizinkan.'
+            );
+
+            $surat->disposisi()->create([
+                'pengirim_id' => $user->id,
+                'penerima_id' => $direktur->id,
+                'tanggal_disposisi' => $tanggalDisposisi,
+                'prioritas' => $prioritas,
+                'batas_waktu' => $rule->hitungBatasWaktu($tanggalDisposisi, $prioritas),
+                'instruksi' => $data['catatan'] ?? null,
+                'status' => StatusDisposisi::Terkirim,
+            ]);
+
+            // Disposisi di atas otomatis mengirim Pesan ke Direktur (lihat
+            // Disposisi::booted()), bukan ke Staff — jadi Staff pengirim
+            // perlu diberi tahu terpisah bahwa suratnya sudah disetujui.
+            Message::create([
+                'sender_id' => $user->id,
+                'receiver_id' => $staff->id,
+                'surat_id' => $surat->id,
+                'subject' => 'Surat Disetujui: '.$surat->nomor_surat,
+                'body' => "Surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) yang Anda kirim telah "
+                    ."disetujui oleh {$user->nama} (Kabag) dan otomatis diteruskan ke {$direktur->nama} (Direktur).",
+            ]);
+
+            $pesanStatus = "Surat disetujui dan otomatis diteruskan ke {$direktur->nama} (Direktur).";
+        } else {
+            abort_unless(
+                $rule->bolehDisposisi($user, $staff),
+                403,
+                'Tujuan pengembalian disposisi tidak sesuai alur yang diizinkan.'
+            );
+
+            $surat->disposisi()->create([
+                'pengirim_id' => $user->id,
+                'penerima_id' => $staff->id,
+                'tanggal_disposisi' => $tanggalDisposisi,
+                'prioritas' => $prioritas,
+                'batas_waktu' => $rule->hitungBatasWaktu($tanggalDisposisi, $prioritas),
+                'instruksi' => $data['catatan'] ?? null,
+                'status' => StatusDisposisi::Terkirim,
+            ]);
+
+            $surat->update([
+                'status' => StatusSurat::PerluRevisi,
+            ]);
+
+            $pesanStatus = "Surat dikirim kembali ke {$staff->nama} untuk direvisi.";
+        }
+
+        return redirect()
+            ->route('surat.show', $surat)
+            ->with('status', $pesanStatus);
     }
 
     /**

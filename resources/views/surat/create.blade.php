@@ -43,14 +43,24 @@
 
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Nomor Surat</label>
-                    <input type="text" name="nomor_surat" value="{{ old('nomor_surat') }}" required
+                    <input type="text" id="nomor_surat" name="nomor_surat" value="{{ old('nomor_surat') }}" required
+                        autocomplete="off"
                         class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <p id="peringatan-nomor_surat" class="mt-1.5 hidden items-start gap-1.5 text-xs font-medium text-amber-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                        <span>Nomor surat ini sudah pernah digunakan.</span>
+                    </p>
                 </div>
 
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Nomor Agenda <span class="font-normal text-slate-400">(manual)</span></label>
-                    <input type="text" name="nomor_agenda" value="{{ old('nomor_agenda') }}"
+                    <input type="text" id="nomor_agenda" name="nomor_agenda" value="{{ old('nomor_agenda') }}"
+                        autocomplete="off"
                         class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <p id="peringatan-nomor_agenda" class="mt-1.5 hidden items-start gap-1.5 text-xs font-medium text-amber-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                        <span>Nomor agenda ini sudah pernah digunakan.</span>
+                    </p>
                 </div>
 
                 <div>
@@ -140,4 +150,73 @@
             </button>
         </div>
     </form>
+
+    @push('scripts')
+        <script>
+            (function () {
+                var CEK_NOMOR_URL = @json(route('surat.cekNomor'));
+
+                function debounce(fn, delay) {
+                    var timer = null;
+                    return function () {
+                        var args = arguments;
+                        clearTimeout(timer);
+                        timer = setTimeout(function () { fn.apply(null, args); }, delay);
+                    };
+                }
+
+                // Satu fungsi dipakai untuk field "nomor_surat" & "nomor_agenda":
+                // ambil nilai kedua field sekaligus (server butuh keduanya untuk
+                // mengecek masing-masing), lalu tampilkan/sembunyikan peringatan
+                // sesuai hasil dari endpoint surat.cekNomor.
+                var cekKeServer = debounce(function () {
+                    var inputSurat = document.getElementById('nomor_surat');
+                    var inputAgenda = document.getElementById('nomor_agenda');
+                    if (! inputSurat) return;
+
+                    var nomorSurat = inputSurat.value.trim();
+                    var nomorAgenda = inputAgenda ? inputAgenda.value.trim() : '';
+
+                    if (nomorSurat === '' && nomorAgenda === '') {
+                        togglePeringatan('nomor_surat', false);
+                        togglePeringatan('nomor_agenda', false);
+                        return;
+                    }
+
+                    var params = new URLSearchParams({
+                        nomor_surat: nomorSurat,
+                        nomor_agenda: nomorAgenda,
+                    });
+
+                    fetch(CEK_NOMOR_URL + '?' + params.toString(), {
+                        headers: { 'Accept': 'application/json' },
+                    })
+                        .then(function (res) { return res.ok ? res.json() : null; })
+                        .then(function (data) {
+                            if (! data) return;
+                            togglePeringatan('nomor_surat', !!data.nomor_surat && data.nomor_surat.sudah_dipakai);
+                            togglePeringatan('nomor_agenda', !!data.nomor_agenda && data.nomor_agenda.sudah_dipakai);
+                        })
+                        .catch(function () {
+                            // Gagal cek (mis. offline) tidak dianggap fatal —
+                            // ini cuma peringatan tambahan, bukan validasi wajib.
+                        });
+                }, 450);
+
+                function togglePeringatan(fieldId, tampilkan) {
+                    var el = document.getElementById('peringatan-' + fieldId);
+                    if (! el) return;
+                    el.classList.toggle('hidden', ! tampilkan);
+                    el.classList.toggle('flex', tampilkan);
+                }
+
+                ['nomor_surat', 'nomor_agenda'].forEach(function (fieldId) {
+                    var input = document.getElementById(fieldId);
+                    if (! input) return;
+                    input.addEventListener('input', cekKeServer);
+                    input.addEventListener('blur', cekKeServer);
+                });
+            })();
+        </script>
+    @endpush
 @endsection

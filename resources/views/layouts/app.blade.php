@@ -331,6 +331,54 @@
         </div>
     </div>
 
+    @auth
+        @php
+            // BARU: pop-up notifikasi pesan belum dibaca, muncul sekali saja
+            // di halaman pertama setelah login lalu hilang otomatis.
+            // - session()->pull(...) membaca sekaligus menghapus flag-nya,
+            //   jadi pop-up tidak muncul lagi walau halaman lain dibuka
+            //   berikutnya (bukan cuma disembunyikan lewat CSS/JS).
+            // - Kalau tidak ada pesan belum dibaca, pop-up sama sekali tidak
+            //   dirender (bukan cuma disembunyikan) sesuai permintaan.
+            $tampilkanNotifLogin = session()->pull('tampilkan_notif_login', false);
+            $jumlahNotifLogin = $tampilkanNotifLogin ? auth()->user()->jumlahPesanBelumDibaca() : 0;
+        @endphp
+        @if ($jumlahNotifLogin > 0)
+            <div
+                x-data="{ show: true }"
+                x-init="setTimeout(() => show = false, 6000)"
+                x-show="show"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 -translate-y-2"
+                x-transition:enter-end="opacity-100 translate-y-0"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100 translate-y-0"
+                x-transition:leave-end="opacity-0 -translate-y-2"
+                class="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-sm sm:right-6 sm:top-6"
+            >
+                <div class="flex items-start gap-3 rounded-xl border border-brand-200 bg-white p-4 shadow-lg ring-1 ring-black/5">
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                    </span>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-semibold text-slate-800">Anda punya pesan baru</p>
+                        <p class="mt-0.5 text-sm text-slate-500">
+                            {{ $jumlahNotifLogin }} pesan belum dibaca menunggu Anda.
+                        </p>
+                        <a href="{{ route('pesan.index') }}" class="mt-1.5 inline-block text-sm font-semibold text-brand-700 hover:underline">
+                            Lihat pesan
+                        </a>
+                    </div>
+                    <button type="button" @click="show = false" class="shrink-0 rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+            </div>
+        @endif
+    @endauth
+
     {{-- Alpine.js untuk interaksi sidebar (toggle mobile) --}}
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 
@@ -349,5 +397,6 @@
             }
         });
     </script>
+    @stack('scripts')
 </body>
 </html>

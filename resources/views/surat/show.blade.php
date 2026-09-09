@@ -15,6 +15,19 @@
             'tunggu_petunjuk' => 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200',
             default => 'bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200',
         };
+
+        // Surat sudah di-Approve oleh Kabag dan otomatis diteruskan ke
+        // Direktur (lihat DisposisiController::reviewBaru()), tapi Direktur
+        // belum mengambil keputusan Terima/Tolak — status Surat di database
+        // masih "baru" (dipakai untuk mendeteksi kapan Direktur boleh
+        // memutuskan), tapi label yang ditampilkan ke pengguna diganti jadi
+        // "Sedang Ditindaklanjuti" supaya tidak terkesan surat belum
+        // diproses sama sekali. Dipakai juga untuk menyembunyikan form
+        // "Kirim Disposisi Baru" dari Staff selama tahap ini.
+        $sedangDitindaklanjuti = $surat->status->value === 'baru'
+            && $dispoTerakhir
+            && $dispoTerakhir->pengirim?->isKabag()
+            && $dispoTerakhir->penerima?->isDirektur();
     @endphp
 
     <div class="mt-6 mb-6">
@@ -25,16 +38,22 @@
         <div class="mt-2 flex flex-wrap items-center gap-3">
             <h2 class="text-2xl font-bold text-slate-800">{{ $surat->nomor_surat }}</h2>
             @php
-                $statusColor = match ($surat->status->value) {
-                    'baru' => 'bg-amber-50 text-amber-700',
-                    'diterima' => 'bg-emerald-50 text-emerald-700',
-                    'ditolak' => 'bg-rose-50 text-rose-700',
-                    'perlu_revisi' => 'bg-orange-50 text-orange-700',
-                    default => 'bg-slate-100 text-slate-600',
-                };
+                $statusColor = $sedangDitindaklanjuti
+                    ? 'bg-sky-50 text-sky-700'
+                    : match ($surat->status->value) {
+                        'baru' => 'bg-amber-50 text-amber-700',
+                        'diterima' => 'bg-emerald-50 text-emerald-700',
+                        'ditolak' => 'bg-rose-50 text-rose-700',
+                        'perlu_revisi' => 'bg-orange-50 text-orange-700',
+                        default => 'bg-slate-100 text-slate-600',
+                    };
+
+                $statusLabel = $sedangDitindaklanjuti
+                    ? 'Sedang Ditindaklanjuti'
+                    : $surat->status->label();
             @endphp
             <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ $statusColor }}">
-                {{ $surat->status->label() }}
+                {{ $statusLabel }}
             </span>
 
             @if ($dispoTerakhir)
@@ -46,7 +65,7 @@
                 </span>
             @endif
 
-            @if (auth()->user()->isStaff() && $surat->created_by === auth()->id() && in_array($surat->status->value, ['baru', 'perlu_revisi'], true))
+            @if (auth()->user()->isStaff() && $surat->created_by === auth()->id() && ! $sedangDitindaklanjuti && in_array($surat->status->value, ['baru', 'perlu_revisi'], true))
                 <a href="{{ route('surat.edit', $surat) }}"
                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -85,6 +104,16 @@
             && $dispoTerakhir
             && $dispoTerakhir->penerima_id === auth()->id()
             && $surat->status->value === 'perlu_revisi';
+
+        // Kabag baru saja menerima surat ini langsung dari Staff (disposisi
+        // terakhir: Staff -> Kabag ini, status masih "Baru", belum pernah
+        // direvisi). Ini titik review pertama sebelum surat diteruskan ke
+        // Direktur.
+        $bisaReviewBaru = auth()->user()->isKabag()
+            && $dispoTerakhir
+            && $dispoTerakhir->penerima_id === auth()->id()
+            && $dispoTerakhir->pengirim?->isStaff()
+            && $surat->status->value === 'baru';
     @endphp
 
     @if ($perluRevisiUntukStaff)
@@ -104,6 +133,35 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                 Edit &amp; Perbaiki Surat
             </a>
+        </div>
+    @endif
+
+    @if ($bisaReviewBaru)
+        <div class="mb-6 rounded-xl border border-brand-200 bg-brand-50 p-5">
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-brand-800">Tinjau Surat Masuk</h3>
+            <p class="mt-1 text-sm text-brand-800/80">
+                {{ $dispoTerakhir->pengirim->nama }} (Staff) mengirim surat ini kepada Anda.
+                Pilih <strong>Approve</strong> untuk menyetujui &mdash; {{ $dispoTerakhir->pengirim->nama }} akan
+                diberi tahu dan surat otomatis diteruskan ke Direktur &mdash; atau <strong>Revisi</strong> untuk
+                mengirimkannya kembali ke {{ $dispoTerakhir->pengirim->nama }} untuk diperbaiki.
+            </p>
+            <form method="POST" action="{{ route('disposisi.reviewBaru', $surat) }}" class="mt-4 space-y-3">
+                @csrf
+                <textarea name="catatan" rows="2" placeholder="Catatan (opsional)"
+                    class="w-full rounded-lg border border-brand-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"></textarea>
+                <div class="flex flex-col gap-3 sm:flex-row">
+                    <button type="submit" name="keputusan" value="approve"
+                        class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Approve
+                    </button>
+                    <button type="submit" name="keputusan" value="revisi"
+                        class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        Revisi
+                    </button>
+                </div>
+            </form>
         </div>
     @endif
 
@@ -162,9 +220,13 @@
         </div>
     @endif
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {{-- Kolom kiri: info surat + lampiran --}}
-        <div class="space-y-6 lg:col-span-2">
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-5">
+        {{-- Kolom kiri: info surat + lampiran.
+             Breakpoint dinaikkan dari lg (1024px) ke xl (1280px) supaya di
+             layar setengah (mis. dua jendela browser berdampingan di monitor
+             lebar) kolom tidak dipaksa berdampingan saat ruangnya sempit —
+             baru pecah jadi 2 kolom kalau viewport benar-benar lega. --}}
+        <div class="space-y-6 xl:col-span-3">
 
             <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-brand-700">Informasi Surat</h3>
@@ -255,7 +317,7 @@
         </div>
 
         {{-- Kolom kanan: riwayat disposisi + form kirim baru --}}
-        <div class="space-y-6">
+        <div class="space-y-6 xl:col-span-2">
 
 {{--
                 Riwayat Disposisi:
@@ -305,10 +367,14 @@
                      (mirip progress bar / loading), setiap titik mewakili
                      satu langkah disposisi dan dihubungkan garis lurus. --}}
                 @if ($riwayatDisposisi->isNotEmpty())
-                    <div class="-mx-1 overflow-x-auto pb-2">
-                        <ol class="flex min-w-max items-start px-1">
+                    {{-- Di layar lebar (xl+), kartu dibiarkan melipat (flex-wrap)
+                         supaya semua langkah disposisi langsung terlihat tanpa
+                         perlu scroll horizontal; di layar sempit tetap jadi
+                         strip yang bisa digeser seperti semula. --}}
+                    <div class="-mx-1 overflow-x-auto pb-2 xl:overflow-visible">
+                        <ol class="flex min-w-max items-start px-1 xl:min-w-0 xl:flex-wrap xl:gap-y-6">
                             @foreach ($riwayatDisposisi as $d)
-                                <li class="flex w-64 shrink-0 flex-col items-stretch sm:w-72">
+                                <li class="flex w-64 shrink-0 flex-col items-stretch sm:w-72 xl:w-full 2xl:w-[calc(50%-0.5rem)]">
                                     {{-- garis + titik --}}
                                     <div class="flex items-center">
                                         <div class="h-0.5 flex-1 {{ $loop->first ? 'bg-transparent' : 'bg-slate-200' }}"></div>
@@ -379,14 +445,66 @@
                 @endif
             </div>
 
-            @if ($penerimaOptions->isNotEmpty())
-                @php
-                    // Staff yang sedang mengirim balik surat berstatus "Perlu
-                    // Revisi" ke Kabag: form & tombolnya sama persis, cuma
-                    // labelnya diganti supaya jelas ini "Kirim Revisi", bukan
-                    // disposisi baru yang tidak berkaitan.
-                    $isKirimRevisi = auth()->user()->isStaff() && $surat->status->value === 'perlu_revisi';
-                @endphp
+            @php
+                // DIPERBARUI: setelah user aktif mengirim disposisi (dia jadi
+                // pengirim di disposisi terakhir), form "Kirim Disposisi"
+                // disembunyikan sampai ada tindak lanjut dari penerima —
+                // supaya tidak ada disposisi ganda/menumpuk sambil menunggu.
+                //
+                // Pengecualian otomatis: begitu penerima itu mengirim
+                // balasan (mis. Kabag meminta revisi ke Staff), dispoTerakhir
+                // yang baru pengirimnya adalah penerima tadi, bukan user
+                // aktif lagi — jadi form kembali terbuka untuk user aktif
+                // tanpa perlu pengecekan status tambahan. Ini otomatis
+                // membuka lagi form untuk Staff saat ada revisi.
+                $sudahKirimMenunggu = $dispoTerakhir && $dispoTerakhir->pengirim_id === auth()->id();
+
+                // Staff yang sedang mengirim balik surat berstatus "Perlu
+                // Revisi" ke Kabag: form & tombolnya sama persis, cuma
+                // labelnya diganti supaya jelas ini "Kirim Revisi", bukan
+                // disposisi baru yang tidak berkaitan.
+                $isKirimRevisi = auth()->user()->isStaff() && $surat->status->value === 'perlu_revisi';
+
+                // DIPERBAIKI: dulu form ini sempat muncul lagi untuk Staff
+                // begitu Kabag klik Approve — karena dispoTerakhir->pengirim_id
+                // sudah berpindah jadi Kabag (bukan Staff lagi), sehingga
+                // $sudahKirimMenunggu bernilai false untuk Staff walaupun
+                // suratnya sebenarnya sedang berjalan ke Direktur, bukan
+                // menunggu Staff. $sedangDitindaklanjuti menutup celah ini;
+                // untuk Kabag/Direktur ini tidak berdampak apa pun karena
+                // kondisinya sudah otomatis terpenuhi/tidak relevan bagi
+                // mereka lewat jalur lain.
+                $formTerkunci = $sudahKirimMenunggu || $sedangDitindaklanjuti;
+            @endphp
+
+            @if ($bisaReviewBaru)
+                {{--
+                    Surat ini sudah punya panel khusus "Tinjau Surat Masuk"
+                    (Approve/Revisi) di atas, jadi form kirim disposisi
+                    generik di bawah ini disembunyikan supaya Kabag tidak
+                    disuguhi dua jalur berbeda untuk aksi yang sama.
+                --}}
+            @elseif ($penerimaOptions->isNotEmpty() && $formTerkunci)
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+                    <p class="flex items-center gap-2 font-medium text-slate-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        @if ($sudahKirimMenunggu)
+                            Disposisi sudah dikirim
+                        @else
+                            Sedang ditindaklanjuti
+                        @endif
+                    </p>
+                    <p class="mt-1">
+                        @if ($sudahKirimMenunggu)
+                            Anda sudah mengirim disposisi untuk surat ini ke {{ $dispoTerakhir->penerima->nama }} dan sedang menunggu tindak lanjutnya.
+                            Form kirim disposisi akan terbuka lagi begitu ada balasan.
+                        @else
+                            Surat ini sudah disetujui Kabag dan sedang ditindaklanjuti oleh {{ $dispoTerakhir->penerima->nama }} (Direktur).
+                            Form kirim disposisi akan terbuka lagi kalau ada tindak lanjut yang butuh perhatian Anda.
+                        @endif
+                    </p>
+                </div>
+            @elseif ($penerimaOptions->isNotEmpty())
                 <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                     <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-brand-700">
                         {{ $isKirimRevisi ? 'Kirim Revisi' : 'Kirim Disposisi Baru' }}

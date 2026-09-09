@@ -50,6 +50,12 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
+        // BARU: tandai supaya pop-up notifikasi pesan (lihat layouts.app)
+        // ditampilkan sekali di halaman pertama setelah login berhasil.
+        // Pop-up-nya sendiri hanya benar-benar muncul kalau user punya
+        // pesan belum dibaca — flag ini cuma menandai "baru saja login".
+        $request->session()->put('tampilkan_notif_login', true);
+
         return redirect()->intended(route('surat.index'));
     }
 

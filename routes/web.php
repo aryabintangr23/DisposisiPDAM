@@ -28,10 +28,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/surat/create', [SuratController::class, 'create'])->name('surat.create');
     Route::post('/surat', [SuratController::class, 'store'])->name('surat.store');
 
-    // PENTING: rute /surat/sampah HARUS didaftarkan sebelum /surat/{surat},
-    // kalau tidak "sampah" akan dianggap sebagai {surat} (ID surat) dan
-    // langsung 404 lewat route model binding.
+    // PENTING: rute /surat/sampah, /surat/cek-nomor, dst. HARUS didaftarkan
+    // sebelum /surat/{surat}, kalau tidak akan dianggap sebagai {surat} (ID
+    // surat) dan langsung 404 lewat route model binding.
     Route::get('/surat/sampah', [SuratController::class, 'sampah'])->name('surat.sampah');
+
+    // BARU: dipanggil lewat AJAX dari form input/edit surat untuk mengecek
+    // nomor surat/agenda yang sudah dipakai SAAT USER MASIH MENGETIK, supaya
+    // peringatan muncul sebelum klik kirim (bukan sesudahnya).
+    Route::get('/surat/cek-nomor', [SuratController::class, 'cekNomor'])->name('surat.cekNomor');
     Route::post('/surat/hapus', [SuratController::class, 'hapus'])->name('surat.hapus');
     Route::post('/surat/sampah/pulihkan', [SuratController::class, 'pulihkan'])->name('surat.pulihkan');
     Route::post('/surat/sampah/hapus-permanen', [SuratController::class, 'hapusPermanen'])->name('surat.hapusPermanen');
@@ -44,6 +49,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/surat/{surat}/disposisi', [DisposisiController::class, 'store'])->name('disposisi.store');
     Route::post('/surat/{surat}/keputusan', [DisposisiController::class, 'keputusan'])->name('disposisi.keputusan');
     Route::post('/surat/{surat}/review-revisi', [DisposisiController::class, 'reviewRevisi'])->name('disposisi.reviewRevisi');
+    Route::post('/surat/{surat}/review-baru', [DisposisiController::class, 'reviewBaru'])->name('disposisi.reviewBaru');
     Route::post('/surat/{surat}/disposisi/{disposisi}/selesai', [DisposisiController::class, 'selesaikan'])->name('disposisi.selesaikan');
     Route::get('/surat/{surat}/disposisi/{disposisi}/cetak', [DisposisiController::class, 'cetak'])->name('disposisi.cetak');
 
