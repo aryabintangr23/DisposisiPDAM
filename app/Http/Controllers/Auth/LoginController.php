@@ -58,10 +58,7 @@ class LoginController extends Controller
 
         LogAktivitas::catat('login_berhasil', "{$request->user()->nama} berhasil login.");
 
-        // BARU: tandai supaya pop-up notifikasi pesan (lihat layouts.app)
-        // ditampilkan sekali di halaman pertama setelah login berhasil.
-        // Pop-up-nya sendiri hanya benar-benar muncul kalau user punya
-        // pesan belum dibaca — flag ini cuma menandai "baru saja login".
+        // Flag untuk pemicu pop-up pesan masuk (muncul sekali pas awal login)
         $request->session()->put('tampilkan_notif_login', true);
 
         return redirect()->intended(route('surat.index'));

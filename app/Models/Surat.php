@@ -17,9 +17,17 @@ class Surat extends Model
     protected $table = 'surat';
 
     protected $fillable = [
-        'created_by', 'arah_surat', 'jenis_surat', 'nomor_surat',
-        'nomor_agenda', 'tanggal_surat', 'tanggal_diterima',
-        'surat_dari', 'tujuan_surat', 'perihal', 'status',
+        'created_by',
+        'arah_surat',
+        'jenis_surat',
+        'nomor_surat',
+        'nomor_agenda',
+        'tanggal_surat',
+        'tanggal_diterima',
+        'surat_dari',
+        'tujuan_surat',
+        'perihal',
+        'status',
     ];
 
     protected $casts = [
@@ -35,11 +43,7 @@ class Surat extends Model
     }
 
     /**
-     * Cakupan surat untuk $user berdasarkan ROLE (bukan per akun),
-     * supaya semua akun berrole sama melihat & memproses data yang sama.
-     * - Admin: semua surat.
-     * - Staff: surat yang dibuat oleh akun berrole sama (staff_umum).
-     * - Kabag/Direktur: surat yang terlibat disposisi dengan role-nya.
+     * Scope query surat berdasarkan role user yang login.
      */
     public function scopeUntukRole(Builder $query, User $user): Builder
     {
@@ -69,18 +73,16 @@ class Surat extends Model
         return $this->hasMany(Disposisi::class)->orderBy('created_at');
     }
 
+    /**
+     * Ambil data disposisi paling baru.
+     */
     public function disposisiTerakhir(): ?Disposisi
     {
-        // reorder() wajib dipakai karena relasi disposisi() di atas sudah
-        // punya orderBy('created_at') ascending.
         return $this->disposisi()->reorder('created_at', 'desc')->first();
     }
 
     /**
-     * True jika surat ini punya minimal satu disposisi yang overdue
-     * (dipakai untuk badge "Terlambat" di daftar surat). Memakai koleksi
-     * yang sudah di-eager-load ($this->disposisi) supaya tidak menambah
-     * query baru per baris saat dipanggil dari daftar.
+     * Cek apakah ada disposisi yang terlambat (overdue).
      */
     public function adaDisposisiTerlambat(): bool
     {

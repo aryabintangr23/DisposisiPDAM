@@ -11,17 +11,7 @@ use Illuminate\View\View;
 class MessageController extends Controller
 {
     /**
-     * Menampilkan daftar pesan (notifikasi disposisi surat).
-     * Bisa difilter per kotak (masuk/keluar) lewat query string "kotak", dan
-     * per arah surat (masuk/keluar) lewat query string "arah" — tetap di
-     * halaman Pesan, tidak berpindah ke halaman Surat.
-     *
-     * DIPERBAIKI: sebelumnya index() selalu memakai scope terkirimUntuk()
-     * (sender_id = user), sehingga pesan yang DITERIMA user (yang membuat
-     * angka notif di navbar bertambah lewat jumlahPesanBelumDibaca()) tidak
-     * pernah tampil di halaman ini dan tidak bisa dibuka/ditandai dibaca.
-     * Sekarang defaultnya adalah Kotak Masuk, dengan tab untuk pindah ke
-     * Kotak Terkirim.
+     * Tampilkan daftar pesan (masuk/keluar).
      */
     public function index(Request $request): View
     {
@@ -52,27 +42,22 @@ class MessageController extends Controller
     }
 
     /**
-     * Menampilkan daftar pesan di tempat sampah.
+     * Tampilkan pesan di tempat sampah.
      */
     public function sampah(): View
     {
         $user = auth()->user();
 
-        // Mengambil pesan di tempat sampah
         $messages = Message::sampahUntuk($user)
             ->with(['pengirim', 'penerima', 'surat'])
             ->latest()
             ->paginate(15);
 
-        // DIPERBAIKI: Mengembalikan view messages.sampah dengan variabel $messages
         return view('messages.sampah', compact('messages'));
     }
 
     /**
-     * BARU: Menandai pesan yang dipilih sebagai telah dibaca.
-     * Hanya berlaku untuk pesan yang diterima oleh user (bukan pesan
-     * terkirim), supaya konsisten dengan angka notif di navbar yang
-     * dihitung dari User::jumlahPesanBelumDibaca().
+     * Tandai pesan terpilih sebagai sudah dibaca (khusus pesan masuk).
      */
     public function tandaiDibaca(Request $request): RedirectResponse
     {
@@ -96,7 +81,7 @@ class MessageController extends Controller
     }
 
     /**
-     * Memindahkan pesan yang dipilih ke tempat sampah.
+     * Pindahkan pesan ke tempat sampah.
      */
     public function hapus(Request $request): RedirectResponse
     {
@@ -118,7 +103,7 @@ class MessageController extends Controller
     }
 
     /**
-     * Memulihkan pesan dari tempat sampah.
+     * Pulihkan pesan dari tempat sampah.
      */
     public function pulihkan(Request $request): RedirectResponse
     {
@@ -138,7 +123,7 @@ class MessageController extends Controller
     }
 
     /**
-     * Menghapus pesan secara permanen dari database.
+     * Hapus pesan secara permanen.
      */
     public function hapusPermanen(Request $request): RedirectResponse
     {
@@ -157,22 +142,20 @@ class MessageController extends Controller
     }
 
     /**
-     * Menampilkan detail pesan. Route: GET /pesan/{pesan} (name: pesan.show).
-     * Parameter route bernama "pesan" sehingga di-bind ke Message $pesan.
+     * Tampilkan detail pesan.
      */
     public function show(Message $pesan): View
     {
         $user = auth()->user();
 
-        // Hanya pengirim atau penerima pesan ini yang boleh membukanya.
+        // Cek hak akses pengirim / penerima
         abort_unless(
             $pesan->dikirimOleh($user) || $pesan->diterimaOleh($user),
             403,
             'Anda tidak memiliki akses ke pesan ini.'
         );
 
-        // Saat penerima membuka pesan, tandai otomatis sebagai sudah dibaca
-        // supaya notif angka pesan belum dibaca di navbar langsung berkurang.
+        // Otomatis tandai dibaca jika yang membuka adalah penerima
         if ($pesan->diterimaOleh($user)) {
             $pesan->tandaiSudahDibaca();
         }

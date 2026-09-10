@@ -9,7 +9,7 @@ class LogAktivitas extends Model
 {
     protected $table = 'log_aktivitas';
 
-    // Baris log tidak pernah diubah setelah dibuat — tidak perlu updated_at.
+    // Log hanya mencatat waktu dibuat (tanpa updated_at)
     public const UPDATED_AT = null;
 
     protected $fillable = [
@@ -31,17 +31,7 @@ class LogAktivitas extends Model
     }
 
     /**
-     * Cara utama untuk mencatat aktivitas dari controller mana pun:
-     *
-     *   LogAktivitas::catat(
-     *       'surat_dibuat',
-     *       "Surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) dibuat.",
-     *       'surat',
-     *       $surat->id
-     *   );
-     *
-     * user_id & ip_address otomatis diambil dari request yang sedang
-     * berjalan (auth()->id() bisa null, mis. untuk percobaan login gagal).
+     * Helper untuk mencatat log aktivitas sistem.
      */
     public static function catat(
         string $aksi,

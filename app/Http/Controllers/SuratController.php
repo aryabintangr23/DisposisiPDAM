@@ -19,35 +19,31 @@ use Illuminate\View\View;
 
 class SuratController extends Controller
 {
+    /**
+     * Menampilkan daftar surat berdasarkan role user dan filter yang dipilih.
+     */
     public function index(Request $request): View
     {
         $user = $request->user();
         $tanggal = $request->query('tanggal');
 
-        // Filter Arah Surat (Surat Masuk / Surat Keluar), dipicu dari link
-        // "Surat Masuk" / "Surat Keluar" di sidebar. Nilai lain diabaikan.
+        // Filter arah surat (masuk/keluar)
         $arah = $request->query('arah');
         if (! in_array($arah, array_column(ArahSurat::cases(), 'value'), true)) {
             $arah = null;
         }
 
-        // Filter Prioritas di dashboard, berdasarkan prioritas pada lembar
-        // disposisi yang pernah dibuat untuk surat tersebut.
+        // Filter prioritas berdasarkan disposisi
         $prioritas = $request->query('prioritas');
         if (! in_array($prioritas, array_column(Prioritas::cases(), 'value'), true)) {
             $prioritas = null;
         }
 
-        // Pencarian bebas: cocokkan ke nomor surat, nomor agenda, perihal,
-        // jenis surat, asal surat, dan tujuan surat sekaligus, supaya
-        // pengguna tidak perlu tahu persis field mana yang harus dicari.
+        // Pencarian kata kunci (nomor, agenda, perihal, asal, tujuan, jenis)
         $cari = trim((string) $request->query('cari', ''));
         $cari = $cari !== '' ? $cari : null;
 
-        // Data dibagi per ROLE, bukan per akun: setiap akun staff_umum
-        // melihat surat yang sama, setiap akun kabag_umum melihat surat
-        // yang sama, dst. Admin: role manajemen — melihat semua surat.
-        // Lihat Surat::scopeUntukRole() untuk detail cakupannya.
+        // Scope query sesuai role user yang login
         $scope = fn () => Surat::untukRole($user);
 
         $query = $scope()->with('disposisi.pengirim.role', 'disposisi.penerima.role');
@@ -77,12 +73,12 @@ class SuratController extends Controller
 
         $surat = $query->latest()->paginate(15)->withQueryString();
 
-        // Tanggal-tanggal yang punya surat (untuk menandai bulatan pada
-        // kalender di dashboard), dibatasi ke bulan yang sedang dilihat.
+        // Data tanggal untuk penanda titik pada kalender dashboard
         $bulan = $request->query('bulan', now()->format('Y-m'));
         if (! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', (string) $bulan)) {
             $bulan = now()->format('Y-m');
         }
+
         $tanggalBersurat = $scope()
             ->whereYear('tanggal_surat', substr($bulan, 0, 4))
             ->whereMonth('tanggal_surat', substr($bulan, 5, 2))
@@ -93,28 +89,28 @@ class SuratController extends Controller
         return view('surat.index', compact('surat', 'tanggal', 'bulan', 'tanggalBersurat', 'arah', 'prioritas', 'cari'));
     }
 
+    /**
+     * Tampilkan form input surat baru (khusus Staff).
+     */
     public function create(Request $request): View
     {
         $this->authorizeStaffOnly($request);
 
-        // Asumsi: Staff juga yang menginput surat keluar, sama seperti surat masuk.
         $kabagList = User::whereHas('role', fn ($q) => $q->where('nama_role', 'kabag_umum'))->get();
 
         return view('surat.create', compact('kabagList'));
     }
 
+    /**
+     * Simpan surat baru beserta lampiran dan disposisi awalnya.
+     */
     public function store(StoreSuratRequest $request, DisposisiRuleService $rule): RedirectResponse
     {
         $this->authorizeStaffOnly($request);
 
         $data = $request->validated();
 
-        // Soft warning: cek duplikasi nomor surat & nomor agenda (termasuk
-        // yang di-soft delete). Ini cuma peringatan (surat tetap disimpan),
-        // supaya tidak menghalangi kasus sah seperti nomor agenda ganda
-        // antar unit — lihat catatan di migration. Pengecekan yang sama
-        // juga tersedia lewat cekNomor() untuk AJAX, dicek langsung di form
-        // saat user masih mengetik, sebelum tombol kirim ditekan.
+        // Warning jika nomor surat atau agenda sudah pernah digunakan
         $this->tandaiJikaNomorSudahDipakai($data['nomor_surat'], $data['nomor_agenda'] ?? null);
 
         $surat = Surat::create([
@@ -143,7 +139,7 @@ class SuratController extends Controller
             }
         }
 
-        // Lembar disposisi pertama dibuat bersamaan: Staff -> Kabag yang dipilih.
+        // Buat lembar disposisi pertama dari Staff ke Kabag
         $penerima = User::findOrFail($data['penerima_id']);
         abort_unless($rule->bolehDisposisi($request->user(), $penerima), 403, 'Tujuan disposisi tidak sesuai alur yang diizinkan.');
 
@@ -169,6 +165,10 @@ class SuratController extends Controller
 
         return redirect()->route('surat.show', $surat)->with('status', 'Surat dan lembar disposisi berhasil dibuat.');
     }
+
+    /**
+     * Form edit data surat.
+     */
     public function edit(Request $request, Surat $surat): View
     {
         $this->authorizeEdit($request, $surat);
@@ -178,6 +178,9 @@ class SuratController extends Controller
         return view('surat.edit', compact('surat'));
     }
 
+    /**
+     * Update data surat dan simpan lampiran tambahan jika ada.
+     */
     public function update(UpdateSuratRequest $request, Surat $surat): RedirectResponse
     {
         $this->authorizeEdit($request, $surat);
@@ -221,11 +224,14 @@ class SuratController extends Controller
         return redirect()->route('surat.show', $surat)->with('status', 'Data surat berhasil diperbarui.');
     }
 
+    /**
+     * Tampilkan detail surat dan riwayat disposisinya.
+     */
     public function show(Request $request, Surat $surat): View
     {
         $this->authorizeAkses($request, $surat);
 
-        // Otomatis tandai disposisi terkait sebagai "Dibaca" saat halaman dibuka
+        // Tandai disposisi sebagai sudah dibaca saat surat dibuka
         $this->tandaiDisposisiTerkaitDibaca($request->user(), $surat);
 
         $surat->load(['lampiran', 'disposisi.pengirim.role', 'disposisi.penerima.role', 'pembuat']);
@@ -235,6 +241,9 @@ class SuratController extends Controller
         return view('surat.show', compact('surat', 'penerimaOptions'));
     }
 
+    /**
+     * Memindahkan surat yang dipilih ke tempat sampah (soft delete).
+     */
     public function hapus(Request $request): RedirectResponse
     {
         $this->authorizeHapusSurat($request);
@@ -257,6 +266,9 @@ class SuratController extends Controller
         return redirect()->route('surat.index')->with('status', "{$jumlah} surat dipindahkan ke tempat sampah.");
     }
 
+    /**
+     * Tampilkan daftar surat di tempat sampah.
+     */
     public function sampah(Request $request): View
     {
         $this->authorizeHapusSurat($request);
@@ -269,6 +281,9 @@ class SuratController extends Controller
         return view('surat.sampah', compact('surat'));
     }
 
+    /**
+     * Pulihkan surat dari tempat sampah.
+     */
     public function pulihkan(Request $request): RedirectResponse
     {
         $this->authorizeHapusSurat($request);
@@ -290,6 +305,9 @@ class SuratController extends Controller
         return redirect()->route('surat.sampah')->with('status', "{$jumlah} surat dipulihkan.");
     }
 
+    /**
+     * Hapus surat dan file lampirannya secara permanen.
+     */
     public function hapusPermanen(Request $request): RedirectResponse
     {
         $this->authorizeHapusSurat($request);
@@ -321,7 +339,37 @@ class SuratController extends Controller
     }
 
     /**
-     * Tandai disposisi terkait sebagai "Dibaca" jika ditujukan ke role user aktif.
+     * Cek AJAX real-time untuk mengecek apakah nomor surat atau agenda sudah terpakai.
+     */
+    public function cekNomor(Request $request): JsonResponse
+    {
+        $nomorSurat = trim((string) $request->query('nomor_surat', ''));
+        $nomorAgenda = trim((string) $request->query('nomor_agenda', ''));
+        $kecuali = $request->query('kecuali');
+
+        $cekDuplikat = function (string $kolom, string $nilai) use ($kecuali) {
+            if ($nilai === '') {
+                return false;
+            }
+
+            return Surat::withTrashed()
+                ->where($kolom, $nilai)
+                ->when($kecuali, fn ($q) => $q->where('id', '!=', $kecuali))
+                ->exists();
+        };
+
+        return response()->json([
+            'nomor_surat' => [
+                'sudah_dipakai' => $cekDuplikat('nomor_surat', $nomorSurat),
+            ],
+            'nomor_agenda' => [
+                'sudah_dipakai' => $cekDuplikat('nomor_agenda', $nomorAgenda),
+            ],
+        ]);
+    }
+
+    /**
+     * Tandai status disposisi menjadi 'Dibaca' ketika user membuka detail surat.
      */
     private function tandaiDisposisiTerkaitDibaca(User $user, Surat $surat): void
     {
@@ -329,6 +377,59 @@ class SuratController extends Controller
             ->whereHas('penerima', fn ($q) => $q->where('role_id', $user->role_id))
             ->whereIn('status', [StatusDisposisi::Terkirim, StatusDisposisi::Diterima])
             ->update(['status' => StatusDisposisi::Dibaca]);
+    }
+
+    /**
+     * Soft warning via session flash jika nomor surat atau agenda terindikasi duplikat.
+     */
+    private function tandaiJikaNomorSudahDipakai(string $nomorSurat, ?string $nomorAgenda, ?int $kecualiId = null): void
+    {
+        $pesan = [];
+
+        $suratDuplikat = Surat::withTrashed()
+            ->where('nomor_surat', $nomorSurat)
+            ->when($kecualiId, fn ($q) => $q->where('id', '!=', $kecualiId))
+            ->exists();
+
+        if ($suratDuplikat) {
+            $pesan[] = "Nomor surat '{$nomorSurat}'";
+        }
+
+        if (! empty($nomorAgenda)) {
+            $agendaDuplikat = Surat::withTrashed()
+                ->where('nomor_agenda', $nomorAgenda)
+                ->when($kecualiId, fn ($q) => $q->where('id', '!=', $kecualiId))
+                ->exists();
+
+            if ($agendaDuplikat) {
+                $pesan[] = "Nomor agenda '{$nomorAgenda}'";
+            }
+        }
+
+        if (! empty($pesan)) {
+            $daftar = implode(' dan ', $pesan);
+            session()->flash('warning', "Peringatan: {$daftar} sudah pernah digunakan pada surat lain.");
+        }
+    }
+
+    /**
+     * Opsi penerima disposisi berdasarkan status surat dan role user.
+     */
+    private function penerimaOptionsUntuk(User $user, Surat $surat)
+    {
+        // Jika surat sudah disetujui (diterima), alur disposisi ditutup
+        if ($surat->status->value === 'diterima') {
+            return collect();
+        }
+
+        $roleTujuan = match (true) {
+            $user->isStaff() => ['kabag_umum'],
+            $user->isKabag() => ['staff_umum', 'direktur'],
+            $user->isDirektur() || $user->isAdmin() => [],
+            default => [],
+        };
+
+        return User::whereHas('role', fn ($q) => $q->whereIn('nama_role', $roleTujuan))->get();
     }
 
     private function authorizeStaffOnly(Request $request): void
@@ -368,108 +469,5 @@ class SuratController extends Controller
                 ->exists();
 
         abort_unless($terlibat, 403, 'Anda tidak memiliki akses ke surat ini.');
-    }
-
-    /**
-     * BARU: dipanggil lewat AJAX (fetch) dari form input & edit surat setiap
-     * kali field "Nomor Surat" / "Nomor Agenda" selesai diketik (debounced),
-     * supaya peringatan "sudah digunakan" muncul SAAT INPUT, sebelum user
-     * klik kirim — bukan sesudahnya seperti sebelumnya (yang berisiko bikin
-     * user mengira gagal lalu mengirim ulang formnya, jadi dobel).
-     *
-     * Query param "kecuali" (opsional): ID surat yang sedang diedit, supaya
-     * surat itu sendiri tidak dianggap "bentrok" dengan nomornya sendiri.
-     */
-    public function cekNomor(Request $request): JsonResponse
-    {
-        $nomorSurat = trim((string) $request->query('nomor_surat', ''));
-        $nomorAgenda = trim((string) $request->query('nomor_agenda', ''));
-        $kecuali = $request->query('kecuali');
-
-        $cekDuplikat = function (string $kolom, string $nilai) use ($kecuali) {
-            if ($nilai === '') {
-                return false;
-            }
-
-            return Surat::withTrashed()
-                ->where($kolom, $nilai)
-                ->when($kecuali, fn ($q) => $q->where('id', '!=', $kecuali))
-                ->exists();
-        };
-
-        return response()->json([
-            'nomor_surat' => [
-                'sudah_dipakai' => $cekDuplikat('nomor_surat', $nomorSurat),
-            ],
-            'nomor_agenda' => [
-                'sudah_dipakai' => $cekDuplikat('nomor_agenda', $nomorAgenda),
-            ],
-        ]);
-    }
-
-    /**
-     * Soft warning (tidak menghalangi simpan) kalau nomor surat dan/atau
-     * nomor agenda yang diinput sudah pernah dipakai surat lain — dipanggil
-     * dari store()/update() sebagai jaring pengaman sisi server, senada
-     * dengan pengecekan real-time di cekNomor().
-     */
-    private function tandaiJikaNomorSudahDipakai(string $nomorSurat, ?string $nomorAgenda, ?int $kecualiId = null): void
-    {
-        $pesan = [];
-
-        $suratDuplikat = Surat::withTrashed()
-            ->where('nomor_surat', $nomorSurat)
-            ->when($kecualiId, fn ($q) => $q->where('id', '!=', $kecualiId))
-            ->exists();
-
-        if ($suratDuplikat) {
-            $pesan[] = "Nomor surat '{$nomorSurat}'";
-        }
-
-        if (! empty($nomorAgenda)) {
-            $agendaDuplikat = Surat::withTrashed()
-                ->where('nomor_agenda', $nomorAgenda)
-                ->when($kecualiId, fn ($q) => $q->where('id', '!=', $kecualiId))
-                ->exists();
-
-            if ($agendaDuplikat) {
-                $pesan[] = "Nomor agenda '{$nomorAgenda}'";
-            }
-        }
-
-        if (! empty($pesan)) {
-            $daftar = implode(' dan ', $pesan);
-            session()->flash('warning', "Peringatan: {$daftar} sudah pernah digunakan pada surat lain.");
-        }
-    }
-
-    /**
-     * DIPERBAIKI: setelah surat berstatus "Diterima" (disetujui Direktur),
-     * alur disposisi dianggap sudah final/selesai. Form & tombol "Kirim
-     * Disposisi" tidak lagi ditampilkan untuk siapa pun — termasuk Kabag
-     * dan Staff — supaya tidak ada lagi disposisi baru yang dikirim atas
-     * surat yang sudah disetujui.
-     *
-     * Sebaliknya, kalau surat berstatus "Ditolak" (atau status lain seperti
-     * "Baru" / "Perlu Revisi"), form & tombol "Kirim Disposisi" tetap
-     * tampil seperti biasa — karena surat yang ditolak Direktur otomatis
-     * sudah dikirim kembali ke Kabag (lihat DisposisiController::keputusan()),
-     * dan Kabag mungkin masih perlu meneruskannya (mis. ke Staff untuk
-     * ditindaklanjuti ulang).
-     */
-    private function penerimaOptionsUntuk(User $user, Surat $surat)
-    {
-        if ($surat->status->value === 'diterima') {
-            return collect();
-        }
-
-        $roleTujuan = match (true) {
-            $user->isStaff() => ['kabag_umum'],
-            $user->isKabag() => ['staff_umum', 'direktur'],
-            $user->isDirektur() || $user->isAdmin() => [],
-            default => [],
-        };
-
-        return User::whereHas('role', fn ($q) => $q->whereIn('nama_role', $roleTujuan))->get();
     }
 }

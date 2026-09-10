@@ -14,8 +14,15 @@ class Disposisi extends Model
     protected $table = 'disposisi';
 
     protected $fillable = [
-        'surat_id', 'pengirim_id', 'penerima_id', 'tanggal_disposisi',
-        'prioritas', 'batas_waktu', 'instruksi', 'status', 'tanggal_diterima',
+        'surat_id',
+        'pengirim_id',
+        'penerima_id',
+        'tanggal_disposisi',
+        'prioritas',
+        'batas_waktu',
+        'instruksi',
+        'status',
+        'tanggal_diterima',
     ];
 
     protected $casts = [
@@ -27,9 +34,7 @@ class Disposisi extends Model
     ];
 
     /**
-     * Setiap disposisi baru otomatis mengirim "pesan" ke penerima (mirip
-     * notifikasi email), supaya menu Pesan penerima langsung bertambah dan
-     * berisi ringkasan surat + instruksi yang didisposisikan.
+     * Otomatis buat pesan notifikasi ke penerima saat disposisi baru dibuat.
      */
     protected static function booted(): void
     {
@@ -76,9 +81,7 @@ class Disposisi extends Model
     }
 
     /**
-     * Disposisi dianggap terlambat (overdue) jika belum berstatus Selesai,
-     * punya batas_waktu, dan tanggal hari ini sudah melewati batas_waktu
-     * tersebut (tanggal_sekarang > batas_waktu).
+     * Cek apakah disposisi sudah melewati batas waktu.
      */
     public function isOverdue(): bool
     {
@@ -90,8 +93,7 @@ class Disposisi extends Model
     }
 
     /**
-     * Scope query: hanya disposisi yang overdue (dipakai untuk filter
-     * dashboard "Terlambat").
+     * Scope filter disposisi yang terlambat.
      */
     public function scopeOverdue(Builder $query): Builder
     {
@@ -101,16 +103,7 @@ class Disposisi extends Model
     }
 
     /**
-     * Scope query: disposisi yang "mendekati batas waktu prioritas" —
-     * masih berstatus aktif (belum Selesai), punya batas_waktu, batasnya
-     * jatuh dalam $dalamHari hari ke depan (termasuk hari ini), DAN suratnya
-     * belum selesai di-putuskan (status Surat bukan Diterima/Ditolak).
-     *
-     * Setelah surat diputuskan (mis. Direktur klik "Terima"/"Tolak" sehingga
-     * status Surat menjadi diterima/ditolak), alur surat itu selesai sehingga
-     * batas waktu disposisi lamanya tidak lagi dipantau di kotak peringatan.
-     *
-     * Dipakai untuk kotak peringatan di dashboard.
+     * Scope filter disposisi yang mendekati tenggat waktu (untuk peringatan dashboard).
      */
     public function scopeMendekatiBatas(Builder $query, int $dalamHari = 3): Builder
     {

@@ -12,13 +12,16 @@ use Illuminate\View\View;
 class ProfileController extends Controller
 {
     /**
-     * Form edit profil: nama & email.
+     * Tampilkan form edit profil.
      */
     public function edit(Request $request): View
     {
         return view('profile.edit', ['user' => $request->user()]);
     }
 
+    /**
+     * Update data profil (nama & email).
+     */
     public function update(Request $request): RedirectResponse
     {
         $user = $request->user();
@@ -34,14 +37,16 @@ class ProfileController extends Controller
     }
 
     /**
-     * Halaman pengaturan: saat ini berisi ganti kata sandi. Bagian lain
-     * (mis. preferensi notifikasi) bisa ditambahkan di sini nanti.
+     * Tampilkan halaman pengaturan (ganti password, dll).
      */
     public function pengaturan(Request $request): View
     {
         return view('profile.pengaturan', ['user' => $request->user()]);
     }
 
+    /**
+     * Update password user.
+     */
     public function updatePassword(Request $request): RedirectResponse
     {
         $user = $request->user();

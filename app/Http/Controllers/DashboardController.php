@@ -12,17 +12,17 @@ use Illuminate\View\View;
 class DashboardController extends Controller
 {
     /**
-     * Halaman Dashboard. Statistik (kartu & grafik) untuk Staff, Admin &
-     * Kabag; Direktur hanya melihat halaman ini sebagai kotak peringatan
-     * surat yang mendekati batas waktu prioritas.
+     * Tampilkan halaman dashboard.
+     * Direktur hanya lihat peringatan tenggat waktu, role lain dapat statistik & grafik.
      */
     public function index(Request $request): View
     {
         $user = $request->user();
 
+        // Scope query surat berdasarkan hak akses role user
         $scope = fn () => Surat::untukRole($user);
 
-        // Kotak peringatan: hanya untuk Kabag & Direktur.
+        // Ambil maksimal 10 disposisi yang mendekati batas waktu (khusus Kabag & Direktur)
         $disposisiMendekati = collect();
         if ($user->isKabag() || $user->isDirektur()) {
             $disposisiMendekati = Disposisi::query()
@@ -35,7 +35,7 @@ class DashboardController extends Controller
                 ->take(10);
         }
 
-        // Statistik dashboard: Staff, Admin & Kabag (direktur tidak melihatnya).
+        // Tampilkan statistik untuk Staff, Admin, dan Kabag (Direktur di-skip)
         $lihatStatistik = ! $user->isDirektur();
         $jumlahSurat = $jumlahMasuk = $jumlahKeluar = 0;
         $statistikPerBulan = collect();
@@ -46,7 +46,7 @@ class DashboardController extends Controller
             $jumlahMasuk = $scope()->where('arah_surat', ArahSurat::Masuk)->count();
             $jumlahKeluar = $scope()->where('arah_surat', ArahSurat::Keluar)->count();
 
-            // Grafik jumlah surat masuk/keluar 6 bulan terakhir (termasuk bulan berjalan).
+            // Hitung rekap surat masuk & keluar per bulan selama 6 bulan terakhir
             $bulanIni = now()->startOfMonth();
             $statistikPerBulan = collect(range(5, 0))->map(function ($i) use ($bulanIni, $scope) {
                 $awal = $bulanIni->copy()->subMonths($i);
@@ -63,7 +63,7 @@ class DashboardController extends Controller
                 ];
             });
 
-            // Sebaran status surat (hanya status yang punya data).
+            // Rekap sebaran status surat (abaikan status yang jumlahnya 0)
             $statistikStatus = collect(StatusSurat::cases())
                 ->map(fn (StatusSurat $status) => [
                     'status' => $status,

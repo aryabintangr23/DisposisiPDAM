@@ -12,10 +12,7 @@ use Illuminate\View\View;
 class LogAktivitasController extends Controller
 {
     /**
-     * Halaman utama Log Aktivitas (khusus Admin — dilindungi middleware
-     * 'admin' di routes/web.php). Menampilkan 20 log terbaru + filter, dan
-     * halaman ini otomatis "menarik" log baru tiap beberapa detik lewat
-     * endpoint data() di bawah, tanpa perlu reload manual.
+     * Tampilkan halaman log aktivitas (khusus admin).
      */
     public function index(Request $request): View
     {
@@ -38,11 +35,7 @@ class LogAktivitasController extends Controller
     }
 
     /**
-     * Dipanggil lewat fetch() dari halaman index setiap ~10 detik (lihat
-     * script di log-aktivitas/index.blade.php). Mengembalikan HANYA log
-     * dengan id lebih besar dari "after" (yakni yang belum pernah tampil
-     * di layar user), supaya daftar terasa "hidup" tanpa reload halaman
-     * dan tanpa mengirim ulang data yang sudah ada.
+     * Endpoint AJAX untuk polling data log terbaru secara real-time.
      */
     public function data(Request $request): JsonResponse
     {
