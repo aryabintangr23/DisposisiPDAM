@@ -16,8 +16,6 @@
         @csrf
         @method('PUT')
 
-        {{-- x-data mengatur tampil/sembunyinya field "Surat Dari" & "Tujuan
-             Surat" mengikuti pilihan Arah Surat, sama seperti form input. --}}
         <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm" x-data="{ arahSurat: '{{ old('arah_surat', $surat->arah_surat->value) }}' }">
             <h3 class="mb-1 text-sm font-semibold uppercase tracking-wide text-brand-700">Data Surat</h3>
             <p class="mb-5 text-sm text-slate-500">Perbarui informasi dasar mengenai surat ini.</p>
@@ -25,8 +23,7 @@
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Arah Surat</label>
-                    <select name="arah_surat" required x-model="arahSurat"
-                        class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <select name="arah_surat" required x-model="arahSurat" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                         <option value="masuk">Surat Masuk</option>
                         <option value="keluar">Surat Keluar</option>
                     </select>
@@ -34,16 +31,12 @@
 
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Jenis Surat</label>
-                    <input type="text" name="jenis_surat" value="{{ old('jenis_surat', $surat->jenis_surat) }}" required
-                        placeholder="Contoh: Surat Undangan"
-                        class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <input type="text" name="jenis_surat" value="{{ old('jenis_surat', $surat->jenis_surat) }}" required placeholder="Contoh: Surat Undangan" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                 </div>
 
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Nomor Surat</label>
-                    <input type="text" id="nomor_surat" name="nomor_surat" value="{{ old('nomor_surat', $surat->nomor_surat) }}" required
-                        autocomplete="off"
-                        class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <input type="text" id="nomor_surat" name="nomor_surat" value="{{ old('nomor_surat', $surat->nomor_surat) }}" required autocomplete="off" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                     <p id="peringatan-nomor_surat" class="mt-1.5 hidden items-start gap-1.5 text-xs font-medium text-amber-600">
                         <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
                         <span>Nomor surat ini sudah pernah digunakan.</span>
@@ -52,9 +45,7 @@
 
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Nomor Agenda <span class="font-normal text-slate-400">(manual)</span></label>
-                    <input type="text" id="nomor_agenda" name="nomor_agenda" value="{{ old('nomor_agenda', $surat->nomor_agenda) }}"
-                        autocomplete="off"
-                        class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <input type="text" id="nomor_agenda" name="nomor_agenda" value="{{ old('nomor_agenda', $surat->nomor_agenda) }}" autocomplete="off" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                     <p id="peringatan-nomor_agenda" class="mt-1.5 hidden items-start gap-1.5 text-xs font-medium text-amber-600">
                         <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
                         <span>Nomor agenda ini sudah pernah digunakan.</span>
@@ -63,33 +54,28 @@
 
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Tanggal Surat</label>
-                    <input type="date" name="tanggal_surat" required value="{{ old('tanggal_surat', $surat->tanggal_surat?->format('Y-m-d')) }}"
-                        class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <input type="date" name="tanggal_surat" required value="{{ old('tanggal_surat', $surat->tanggal_surat?->format('Y-m-d')) }}" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                 </div>
 
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Tanggal Diterima</label>
-                    <input type="date" name="tanggal_diterima" value="{{ old('tanggal_diterima', $surat->tanggal_diterima?->format('Y-m-d')) }}"
-                        class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <input type="date" name="tanggal_diterima" value="{{ old('tanggal_diterima', $surat->tanggal_diterima?->format('Y-m-d')) }}" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                 </div>
 
                 <div x-show="arahSurat === 'masuk'" x-cloak>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Surat Dari</label>
-                    <input type="text" name="surat_dari" :required="arahSurat === 'masuk'" value="{{ old('surat_dari', $surat->surat_dari) }}"
-                        class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <input type="text" name="surat_dari" :required="arahSurat === 'masuk'" value="{{ old('surat_dari', $surat->surat_dari) }}" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                 </div>
 
                 <div x-show="arahSurat === 'keluar'" x-cloak>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Tujuan Surat</label>
-                    <input type="text" name="tujuan_surat" :required="arahSurat === 'keluar'" value="{{ old('tujuan_surat', $surat->tujuan_surat) }}"
-                        class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <input type="text" name="tujuan_surat" :required="arahSurat === 'keluar'" value="{{ old('tujuan_surat', $surat->tujuan_surat) }}" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                 </div>
             </div>
 
             <div class="mt-5">
                 <label class="mb-1.5 block text-sm font-medium text-slate-700">Perihal</label>
-                <textarea name="perihal" required rows="3"
-                    class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">{{ old('perihal', $surat->perihal) }}</textarea>
+                <textarea name="perihal" required rows="3" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">{{ old('perihal', $surat->perihal) }}</textarea>
             </div>
 
             @if ($surat->lampiran->isNotEmpty())
@@ -109,19 +95,16 @@
             <div class="mt-5">
                 <label class="mb-1.5 block text-sm font-medium text-slate-700">Tambah Lampiran <span class="font-normal text-slate-400">(PDF, JPG, atau DOCX, opsional, boleh lebih dari satu)</span></label>
                 <div class="rounded-lg border-2 border-dashed border-slate-300 px-4 py-6 text-center transition hover:border-brand-400">
-                    <input type="file" name="lampiran[]" multiple accept=".pdf,.jpg,.jpeg,application/pdf,image/jpeg,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        class="w-full text-sm text-slate-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand-700 hover:file:bg-brand-100">
+                    <input type="file" name="lampiran[]" multiple accept=".pdf,.jpg,.jpeg,application/pdf,image/jpeg,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="w-full text-sm text-slate-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand-700 hover:file:bg-brand-100">
                 </div>
             </div>
         </div>
 
         <div class="flex items-center justify-end gap-3">
-            <a href="{{ route('surat.show', $surat) }}"
-               class="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100">
+            <a href="{{ route('surat.show', $surat) }}" class="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100">
                 Batal
             </a>
-            <button type="submit"
-                class="inline-flex items-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800">
+            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
                 Simpan Perubahan
             </button>
@@ -143,13 +126,10 @@
                     };
                 }
 
-                // Sama seperti di form input surat, tapi menyertakan "kecuali"
-                // (ID surat yang sedang diedit) supaya surat ini tidak
-                // dianggap bentrok dengan nomornya sendiri.
                 var cekKeServer = debounce(function () {
                     var inputSurat = document.getElementById('nomor_surat');
                     var inputAgenda = document.getElementById('nomor_agenda');
-                    if (! inputSurat) return;
+                    if (!inputSurat) return;
 
                     var nomorSurat = inputSurat.value.trim();
                     var nomorAgenda = inputAgenda ? inputAgenda.value.trim() : '';
@@ -171,26 +151,23 @@
                     })
                         .then(function (res) { return res.ok ? res.json() : null; })
                         .then(function (data) {
-                            if (! data) return;
+                            if (!data) return;
                             togglePeringatan('nomor_surat', !!data.nomor_surat && data.nomor_surat.sudah_dipakai);
                             togglePeringatan('nomor_agenda', !!data.nomor_agenda && data.nomor_agenda.sudah_dipakai);
                         })
-                        .catch(function () {
-                            // Gagal cek (mis. offline) tidak dianggap fatal —
-                            // ini cuma peringatan tambahan, bukan validasi wajib.
-                        });
+                        .catch(function () {});
                 }, 450);
 
                 function togglePeringatan(fieldId, tampilkan) {
                     var el = document.getElementById('peringatan-' + fieldId);
-                    if (! el) return;
-                    el.classList.toggle('hidden', ! tampilkan);
+                    if (!el) return;
+                    el.classList.toggle('hidden', !tampilkan);
                     el.classList.toggle('flex', tampilkan);
                 }
 
                 ['nomor_surat', 'nomor_agenda'].forEach(function (fieldId) {
                     var input = document.getElementById(fieldId);
-                    if (! input) return;
+                    if (!input) return;
                     input.addEventListener('input', cekKeServer);
                     input.addEventListener('blur', cekKeServer);
                 });

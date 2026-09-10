@@ -10,8 +10,7 @@ use Illuminate\Support\Facades\Route;
 
 class RouteServiceProvider extends ServiceProvider
 {
-    // Default bawaan Laravel adalah '/home'. Diarahkan ke '/surat' karena
-    // aplikasi ini tidak punya route '/home'.
+    // Redirect default setelah login/autentikasi
     public const HOME = '/surat';
 
     public function boot(): void

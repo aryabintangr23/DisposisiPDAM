@@ -3,12 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
     <title>Login - Disposisi Surat | Perumda Tirta Gemilang</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-
     <script>
         tailwind.config = {
             theme: {
@@ -16,7 +14,6 @@
                     fontFamily: {
                         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
                     },
-
                     colors: {
                         brand: {
                             50: '#eff8ff',
@@ -38,11 +35,7 @@
 
     <!-- Google Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet"
-    >
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
         body {
@@ -53,242 +46,80 @@
 
 <body class="min-h-screen overflow-hidden">
 
-    <!-- ================================================= -->
-    <!-- VIDEO BACKGROUND -->
-    <!-- ================================================= -->
-
+    <!-- Video Background -->
     <div class="fixed inset-0 z-0">
-
-        <video
-            autoplay
-            loop
-            muted
-            playsinline
-            class="h-full w-full object-cover"
-        >
-            <source
-                src="https://www.tirtagemilang.com/public/admin/video/company_profile.mp4"
-                type="video/mp4"
-            >
-
+        <video autoplay loop muted playsinline class="h-full w-full object-cover">
+            <source src="https://www.tirtagemilang.com/public/admin/video/company_profile.mp4" type="video/mp4">
             Browser Anda tidak mendukung video.
         </video>
-
-        <!--
-            Overlay putih transparan tipis.
-            Dibuat sangat ringan agar video tetap terlihat jelas.
-        -->
         <div class="absolute inset-0 bg-white/10"></div>
-
     </div>
 
-
-    <!-- ================================================= -->
-    <!-- CONTENT -->
-    <!-- ================================================= -->
-
+    <!-- Container Utama -->
     <div class="relative z-10 flex min-h-screen items-center justify-center overflow-y-auto px-4 py-10">
-
-        <!-- Wrapper -->
         <div class="w-full max-w-md">
 
-
-            <!-- ================================================= -->
-            <!-- HEADER / LOGO -->
-            <!-- ================================================= -->
-
+            <!-- Header & Logo -->
             <div class="mb-8 text-center">
-
-                <!-- Logo -->
                 <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/20 p-2 shadow-lg backdrop-blur-md">
-
-                    <img
-                        src="{{ asset('images/LOGO PERUMDA.png') }}"
-                        alt="Logo Tirta Gemilang"
-                        class="h-full w-full object-contain"
-                    >
-
+                    <img src="{{ asset('images/LOGO PERUMDA.png') }}" alt="Logo Tirta Gemilang" class="h-full w-full object-contain">
                 </div>
-
-
-                <!-- Judul -->
-                <h1 class="text-xl font-bold text-white drop-shadow-lg">
-                    Sistem Disposisi Surat
-                </h1>
-
-
-                <!-- Nama perusahaan -->
-                <p class="mt-1 text-sm text-white/90 drop-shadow-lg">
-                    Perumda Air Minum Tirta Gemilang — Kab. Magelang
-                </p>
-
+                <h1 class="text-xl font-bold text-white drop-shadow-lg">Sistem Disposisi Surat</h1>
+                <p class="mt-1 text-sm text-white/90 drop-shadow-lg">Perumda Air Minum Tirta Gemilang — Kab. Magelang</p>
             </div>
 
-
-            <!-- ================================================= -->
-            <!-- BOX LOGIN -->
-            <!-- ================================================= -->
-
+            <!-- Form Card Login -->
             <div class="rounded-2xl bg-white/95 p-8 shadow-2xl backdrop-blur-md">
+                <h2 class="mb-1 text-lg font-semibold text-slate-800">Masuk ke akun Anda</h2>
+                <p class="mb-6 text-sm text-slate-500">Gunakan email dan kata sandi yang terdaftar.</p>
 
-                <!-- Judul -->
-                <h2 class="mb-1 text-lg font-semibold text-slate-800">
-                    Masuk ke akun Anda
-                </h2>
-
-                <p class="mb-6 text-sm text-slate-500">
-                    Gunakan email dan kata sandi yang terdaftar.
-                </p>
-
-
-                <!-- ================================================= -->
-                <!-- STATUS -->
-                <!-- ================================================= -->
-
+                <!-- Alert Status -->
                 @if (session('status'))
-
                     <div class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-
                         {{ session('status') }}
-
                     </div>
-
                 @endif
 
-
-                <!-- ================================================= -->
-                <!-- ERROR -->
-                <!-- ================================================= -->
-
+                <!-- Alert Error Validation -->
                 @if ($errors->any())
-
                     <div class="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-
                         <ul class="list-disc space-y-1 pl-4">
-
                             @foreach ($errors->all() as $error)
-
-                                <li>
-                                    {{ $error }}
-                                </li>
-
+                                <li>{{ $error }}</li>
                             @endforeach
-
                         </ul>
-
                     </div>
-
                 @endif
 
-
-                <!-- ================================================= -->
-                <!-- FORM LOGIN -->
-                <!-- ================================================= -->
-
-                <form
-                    method="POST"
-                    action="{{ route('login') }}"
-                    class="space-y-4"
-                >
-
+                <!-- Form Login -->
+                <form method="POST" action="{{ route('login') }}" class="space-y-4">
                     @csrf
 
-
-                    <!-- EMAIL -->
                     <div>
-
-                        <label
-                            for="email"
-                            class="mb-1.5 block text-sm font-medium text-slate-700"
-                        >
-                            Email
-                        </label>
-
-                        <input
-                            type="email"
-                            id="email"
-                            name="email"
-                            value="{{ old('email') }}"
-                            required
-                            autofocus
-                            placeholder="nama@tirtagemilang.co.id"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
-                        >
-
+                        <label for="email" class="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
+                        <input type="email" id="email" name="email" value="{{ old('email') }}" required autofocus placeholder="nama@tirtagemilang.co.id" class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                     </div>
 
-
-                    <!-- PASSWORD -->
                     <div>
-
-                        <label
-                            for="password"
-                            class="mb-1.5 block text-sm font-medium text-slate-700"
-                        >
-                            Kata Sandi
-                        </label>
-
-                        <input
-                            type="password"
-                            id="password"
-                            name="password"
-                            required
-                            placeholder="••••••••"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
-                        >
-
+                        <label for="password" class="mb-1.5 block text-sm font-medium text-slate-700">Kata Sandi</label>
+                        <input type="password" id="password" name="password" required placeholder="••••••••" class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                     </div>
 
-
-                    <!-- ================================================= -->
-                    <!-- BUTTON -->
-                    <!-- ================================================= -->
-
-                    <button
-                        type="submit"
-                        class="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-                    >
-
+                    <button type="submit" class="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/40">
                         Masuk
-
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            stroke-width="2"
-                        >
-
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                d="M13 7l5 5m0 0l-5 5m5-5H6"
-                            />
-
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                         </svg>
-
                     </button>
-
                 </form>
-
             </div>
 
-
-            <!-- ================================================= -->
-            <!-- FOOTER -->
-            <!-- ================================================= -->
-
+            <!-- Footer -->
             <p class="mt-6 text-center text-xs text-white/80 drop-shadow-lg">
-
-                &copy; {{ date('Y') }}
-                Perumda Air Minum Tirta Gemilang.
-                Internal use only.
-
+                &copy; {{ date('Y') }} Perumda Air Minum Tirta Gemilang. Internal use only.
             </p>
 
         </div>
-
     </div>
 
 </body>

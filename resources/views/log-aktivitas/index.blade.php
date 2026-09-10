@@ -3,7 +3,6 @@
 @section('title', 'Log Aktivitas')
 
 @section('content')
-
     <div class="mt-6 mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h2 class="text-2xl font-bold text-slate-800">Log Aktivitas</h2>
@@ -19,47 +18,38 @@
                 <span id="indikator-log-update">Menunggu data…</span>
             </span>
 
-            <button type="button"
-                    @click="aktif = !aktif; window.__logAktivitasState && (window.__logAktivitasState.berjalan = aktif)"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
+            <button type="button" @click="aktif = !aktif; window.__logAktivitasState && (window.__logAktivitasState.berjalan = aktif)" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
                 <span x-show="aktif">Jeda Otomatis</span>
                 <span x-show="!aktif" x-cloak>Lanjutkan</span>
             </button>
 
-            <button type="button" onclick="window.__logAktivitasTick && window.__logAktivitasTick()"
-                    class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-800">
+            <button type="button" onclick="window.__logAktivitasTick && window.__logAktivitasTick()" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-800">
                 Muat Sekarang
             </button>
         </div>
     </div>
 
-    {{-- ============ FILTER ============ --}}
-    <form method="GET" action="{{ route('logAktivitas.index') }}" id="form-filter-log"
-          class="mb-5 flex flex-wrap items-center gap-2">
-        <select name="aksi" onchange="this.form.submit()"
-                class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-brand-500">
+    <!-- Filter Log -->
+    <form method="GET" action="{{ route('logAktivitas.index') }}" id="form-filter-log" class="mb-5 flex flex-wrap items-center gap-2">
+        <select name="aksi" onchange="this.form.submit()" class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-brand-500">
             <option value="">Semua Aksi</option>
             @foreach ($daftarAksi as $a)
                 <option value="{{ $a }}" @selected($filters['aksi'] === $a)>{{ ucwords(str_replace('_', ' ', $a)) }}</option>
             @endforeach
         </select>
 
-        <select name="user_id" onchange="this.form.submit()"
-                class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-brand-500">
+        <select name="user_id" onchange="this.form.submit()" class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-brand-500">
             <option value="">Semua Pengguna</option>
             @foreach ($daftarUser as $u)
                 <option value="{{ $u->id }}" @selected((string) $filters['user_id'] === (string) $u->id)>{{ $u->nama }}</option>
             @endforeach
         </select>
 
-        <input type="date" name="tanggal" value="{{ $filters['tanggal'] }}" onchange="this.form.submit()"
-               class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-brand-500">
+        <input type="date" name="tanggal" value="{{ $filters['tanggal'] }}" onchange="this.form.submit()" class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-brand-500">
 
-        <input type="search" name="cari" value="{{ $filters['cari'] }}" placeholder="Cari deskripsi…"
-               class="w-full max-w-xs rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-brand-500">
+        <input type="search" name="cari" value="{{ $filters['cari'] }}" placeholder="Cari deskripsi…" class="w-full max-w-xs rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-brand-500">
 
-        <button type="submit"
-                class="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">
+        <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">
             Cari
         </button>
 
@@ -68,6 +58,7 @@
         @endif
     </form>
 
+    <!-- Tabel Log -->
     <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <table class="min-w-full divide-y divide-slate-200" id="tabel-log-aktivitas">
             <thead class="bg-slate-50">
@@ -99,11 +90,6 @@
 
     @push('scripts')
     <script>
-        // Polling ringan (bukan WebSocket) tiap 10 detik untuk menarik log
-        // baru tanpa reload halaman. Dibungkus fungsi + di-restart di setiap
-        // turbo:render supaya tetap jalan setelah navigasi Turbo, dan
-        // di-clear di turbo:before-cache supaya tidak ada interval "bocor"
-        // yang terus jalan di halaman lain.
         function jalankanPollingLogAktivitas() {
             const tabel = document.getElementById('tabel-log-aktivitas');
             if (!tabel) return;
@@ -163,7 +149,6 @@
                 if (window.__logAktivitasState && window.__logAktivitasState.berjalan) tick();
             }, 10000);
 
-            // Muat sekali di awal supaya indikator langsung terisi.
             tick();
         }
 
@@ -174,5 +159,4 @@
         });
     </script>
     @endpush
-
 @endsection

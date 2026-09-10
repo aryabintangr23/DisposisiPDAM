@@ -6,16 +6,10 @@ use App\Enums\Prioritas;
 use App\Models\User;
 use Carbon\Carbon;
 
-/**
- * Pusat business rule untuk disposisi, supaya aturan arah yang sah dan
- * perhitungan batas waktu tidak tercecer/duplikat di banyak controller.
- */
 class DisposisiRuleService
 {
     /**
-     * Matriks arah disposisi yang sah (role pengirim => daftar role penerima yang boleh dituju).
-     * Sesuai requirement, hanya 4 arah ini yang diizinkan:
-     * Staff -> Kabag, Kabag -> Staff, Kabag -> Direktur, Direktur -> Kabag.
+     * Matriks alur disposisi yang diizinkan (role pengirim => role penerima)
      */
     private const ALUR_SAH = [
         'staff_umum' => ['kabag_umum'],
@@ -23,6 +17,9 @@ class DisposisiRuleService
         'direktur'   => ['kabag_umum'],
     ];
 
+    /**
+     * Cek apakah pengirim boleh mengirim disposisi ke penerima.
+     */
     public function bolehDisposisi(User $pengirim, User $penerima): bool
     {
         $roleKirim = $pengirim->role?->nama_role;
@@ -36,9 +33,7 @@ class DisposisiRuleService
     }
 
     /**
-     * Hitung batas waktu dari tanggal disposisi + prioritas.
-     * Dikonfirmasi: menggunakan hari kalender (bukan hari kerja).
-     * Mengembalikan null untuk prioritas "tunggu_petunjuk".
+     * Hitung batas waktu disposisi berdasarkan hari kalender.
      */
     public function hitungBatasWaktu(Carbon $tanggalDisposisi, Prioritas $prioritas): ?Carbon
     {
@@ -48,7 +43,7 @@ class DisposisiRuleService
     }
 
     /**
-     * Hanya Staff yang boleh menandai disposisi sebagai "selesai" (dikonfirmasi).
+     * Cek apakah user berhak menyelesaikan disposisi (khusus Staff).
      */
     public function bolehMenyelesaikan(User $user): bool
     {
@@ -56,14 +51,7 @@ class DisposisiRuleService
     }
 
     /**
-     * Apakah $user boleh menetapkan keputusan ($keputusan: 'diterima' | 'ditolak' | 'perlu_revisi')
-     * atas sebuah surat, dengan $penerima sebagai tujuan disposisi balasannya.
-     *
-     * Aturan saat ini: keputusan hanya sah kalau arah pengirim->penerima-nya
-     * sendiri sudah sah menurut ALUR_SAH (dicek terpisah lewat bolehDisposisi()),
-     * dan role $user memang berwenang memberi keputusan jenis itu:
-     * - Direktur: diterima / ditolak
-     * - Kabag: perlu_revisi (ke Staff)
+     * Cek hak akses penetapan keputusan surat (Direktur: Terima/Tolak, Kabag: Perlu Revisi).
      */
     public function bolehSetKeputusan(User $user, User $penerima, string $keputusan): bool
     {

@@ -10,12 +10,7 @@ use App\Http\Controllers\SuratController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes - Aplikasi Disposisi Surat Menyurat
-|--------------------------------------------------------------------------
-*/
-
+//Web Routes - Aplikasi Disposisi Surat Menyurat
 Route::get('/login', [LoginController::class, 'create'])->name('login')->middleware('guest');
 Route::post('/login', [LoginController::class, 'store'])->middleware('guest');
 Route::post('/logout', [LoginController::class, 'destroy'])->name('logout')->middleware('auth');
@@ -29,14 +24,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/surat/create', [SuratController::class, 'create'])->name('surat.create');
     Route::post('/surat', [SuratController::class, 'store'])->name('surat.store');
 
-    // PENTING: rute /surat/sampah, /surat/cek-nomor, dst. HARUS didaftarkan
-    // sebelum /surat/{surat}, kalau tidak akan dianggap sebagai {surat} (ID
-    // surat) dan langsung 404 lewat route model binding.
     Route::get('/surat/sampah', [SuratController::class, 'sampah'])->name('surat.sampah');
-
-    // BARU: dipanggil lewat AJAX dari form input/edit surat untuk mengecek
-    // nomor surat/agenda yang sudah dipakai SAAT USER MASIH MENGETIK, supaya
-    // peringatan muncul sebelum klik kirim (bukan sesudahnya).
     Route::get('/surat/cek-nomor', [SuratController::class, 'cekNomor'])->name('surat.cekNomor');
     Route::post('/surat/hapus', [SuratController::class, 'hapus'])->name('surat.hapus');
     Route::post('/surat/sampah/pulihkan', [SuratController::class, 'pulihkan'])->name('surat.pulihkan');
@@ -54,11 +42,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/surat/{surat}/disposisi/{disposisi}/selesai', [DisposisiController::class, 'selesaikan'])->name('disposisi.selesaikan');
     Route::get('/surat/{surat}/disposisi/{disposisi}/cetak', [DisposisiController::class, 'cetak'])->name('disposisi.cetak');
 
-    // Menu Pesan: pesan internal antar pengguna, mirip email sederhana.
     Route::prefix('pesan')->name('pesan.')->group(function () {
         Route::get('/', [MessageController::class, 'index'])->name('index');
-
-        // Sama seperti di atas: /pesan/sampah harus sebelum /pesan/{pesan}.
         Route::get('/sampah', [MessageController::class, 'sampah'])->name('sampah');
         Route::post('/tandai-dibaca', [MessageController::class, 'tandaiDibaca'])->name('tandaiDibaca');
         Route::post('/hapus', [MessageController::class, 'hapus'])->name('hapus');
@@ -68,7 +53,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/{pesan}', [MessageController::class, 'show'])->name('show');
     });
 
-    // Menu Profil: diakses lewat dropdown foto profil (sidebar & topbar).
     Route::prefix('profil')->name('profil.')->group(function () {
         Route::get('/edit', [ProfileController::class, 'edit'])->name('edit');
         Route::put('/edit', [ProfileController::class, 'update'])->name('update');
@@ -77,7 +61,6 @@ Route::middleware('auth')->group(function () {
         Route::put('/pengaturan/password', [ProfileController::class, 'updatePassword'])->name('pengaturan.password');
     });
 
-    // Menu Admin: kelola user. Hanya user berperan Admin.
     Route::prefix('pengguna')->name('pengguna.')->middleware('admin')->group(function () {
         Route::get('/', [UserController::class, 'index'])->name('index');
         Route::get('/create', [UserController::class, 'create'])->name('create');
@@ -87,7 +70,6 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
     });
 
-    // Menu Admin: Log Aktivitas. Hanya user berperan Admin.
     Route::prefix('log-aktivitas')->name('logAktivitas.')->middleware('admin')->group(function () {
         Route::get('/', [LogAktivitasController::class, 'index'])->name('index');
         Route::get('/data', [LogAktivitasController::class, 'data'])->name('data');

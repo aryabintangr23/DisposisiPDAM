@@ -16,20 +16,18 @@ return new class extends Migration
 
             $table->date('tanggal_disposisi');
             $table->string('prioritas'); // sangat_segera | segera | biasa | tunggu_petunjuk
-            $table->date('batas_waktu')->nullable(); // null jika tunggu_petunjuk. Dihitung hari kalender.
+            $table->date('batas_waktu')->nullable();
 
             $table->text('instruksi')->nullable();
 
-            // terkirim | diterima | dibaca | ditindaklanjuti | selesai
-            // Status "selesai" hanya boleh diset oleh Staff (dikonfirmasi).
+            // Status: terkirim | diterima | dibaca | ditindaklanjuti | selesai
             $table->string('status')->default('terkirim');
 
             $table->date('tanggal_diterima')->nullable();
 
             $table->timestamps();
 
-            // Alur dipastikan linear (tidak bercabang), jadi cukup urut
-            // berdasarkan created_at per surat_id tanpa kolom induk tambahan.
+            // Index untuk tracking urutan disposisi per surat
             $table->index(['surat_id', 'created_at']);
         });
     }
