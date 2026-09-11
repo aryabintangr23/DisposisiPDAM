@@ -22,7 +22,7 @@ class SuratController extends Controller
     /**
      * Menampilkan daftar surat berdasarkan role user dan filter yang dipilih.
      */
-    public function index(Request $request): View
+    public function index(Request $request, DisposisiRuleService $rule): View
     {
         $user = $request->user();
         $tanggal = $request->query('tanggal');
@@ -73,6 +73,11 @@ class SuratController extends Controller
 
         $surat = $query->latest()->paginate(15)->withQueryString();
 
+        // Tandai otomatis surat yang sudah melewati batas waktu prioritas sebagai "Ditolak".
+        foreach ($surat as $item) {
+            $rule->tandaiOtomatisJikaTerlambat($item);
+        }
+
         // Data tanggal untuk penanda titik pada kalender dashboard
         $bulan = $request->query('bulan', now()->format('Y-m'));
         if (! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', (string) $bulan)) {
@@ -86,7 +91,26 @@ class SuratController extends Controller
             ->distinct()
             ->pluck('tgl');
 
-        return view('surat.index', compact('surat', 'tanggal', 'bulan', 'tanggalBersurat', 'arah', 'prioritas', 'cari'));
+        // Ringkasan per tanggal untuk pop up peringatan saat kursor berada di atas tanggal kalender.
+        $peringatanKalender = $scope()
+            ->whereYear('tanggal_surat', substr($bulan, 0, 4))
+            ->whereMonth('tanggal_surat', substr($bulan, 5, 2))
+            ->with('disposisi')
+            ->get()
+            ->groupBy(fn (Surat $item) => $item->tanggal_surat->format('Y-m-d'))
+            ->map(fn ($grup) => $grup->map(function (Surat $item) {
+                $dispoTerakhir = $item->disposisi->last();
+
+                return [
+                    'nomor_surat' => $item->nomor_surat,
+                    'perihal' => $item->perihal,
+                    'status' => $item->status->label(),
+                    'terlambat' => $dispoTerakhir?->isOverdue() ?? false,
+                    'prioritas' => $dispoTerakhir?->prioritas?->label(),
+                ];
+            })->values());
+
+        return view('surat.index', compact('surat', 'tanggal', 'bulan', 'tanggalBersurat', 'peringatanKalender', 'arah', 'prioritas', 'cari'));
     }
 
     /**
@@ -109,6 +133,11 @@ class SuratController extends Controller
         $this->authorizeStaffOnly($request);
 
         $data = $request->validated();
+
+        // Tanggal diterima hanya relevan untuk surat masuk; surat keluar selalu dikosongkan.
+        if ($data['arah_surat'] === 'keluar') {
+            $data['tanggal_diterima'] = null;
+        }
 
         // Warning jika nomor surat atau agenda sudah pernah digunakan
         $this->tandaiJikaNomorSudahDipakai($data['nomor_surat'], $data['nomor_agenda'] ?? null);
@@ -170,8 +199,11 @@ class SuratController extends Controller
     /**
      * Form edit data surat.
      */
-    public function edit(Request $request, Surat $surat): View
+    public function edit(Request $request, Surat $surat, DisposisiRuleService $rule): View
     {
+        $surat->load('disposisi');
+        $rule->tandaiOtomatisJikaTerlambat($surat);
+
         $this->authorizeEdit($request, $surat);
 
         $surat->load('lampiran');
@@ -188,6 +220,11 @@ class SuratController extends Controller
 
         $data = $request->validated();
 
+        // Tanggal diterima hanya relevan untuk surat masuk; surat keluar selalu dikosongkan.
+        if ($data['arah_surat'] === 'keluar') {
+            $data['tanggal_diterima'] = null;
+        }
+
         $this->tandaiJikaNomorSudahDipakai($data['nomor_surat'], $data['nomor_agenda'] ?? null, $surat->id);
 
         $surat->update([
@@ -201,6 +238,17 @@ class SuratController extends Controller
             'tujuan_surat' => $data['tujuan_surat'] ?? null,
             'perihal' => $data['perihal'],
         ]);
+
+        // Hapus lampiran yang ditandai user (untuk diganti dengan lampiran baru).
+        $idLampiranDihapus = collect($request->input('hapus_lampiran', []))->map(fn ($id) => (int) $id);
+        if ($idLampiranDihapus->isNotEmpty()) {
+            $lampiranDihapus = $surat->lampiran()->whereIn('id', $idLampiranDihapus)->get();
+
+            foreach ($lampiranDihapus as $file) {
+                Storage::disk('public')->delete($file->path_file);
+                $file->delete();
+            }
+        }
 
         if ($request->hasFile('lampiran')) {
             foreach ($request->file('lampiran') as $file) {
@@ -228,7 +276,7 @@ class SuratController extends Controller
     /**
      * Tampilkan detail surat dan riwayat disposisinya.
      */
-    public function show(Request $request, Surat $surat): View
+    public function show(Request $request, Surat $surat, DisposisiRuleService $rule): View
     {
         $this->authorizeAkses($request, $surat);
 
@@ -236,6 +284,9 @@ class SuratController extends Controller
         $this->tandaiDisposisiTerkaitDibaca($request->user(), $surat);
 
         $surat->load(['lampiran', 'disposisi.pengirim.role', 'disposisi.penerima.role', 'pembuat']);
+
+        // Tandai otomatis surat yang sudah melewati batas waktu prioritas sebagai "Ditolak".
+        $rule->tandaiOtomatisJikaTerlambat($surat);
 
         $penerimaOptions = $this->penerimaOptionsUntuk($request->user(), $surat);
 

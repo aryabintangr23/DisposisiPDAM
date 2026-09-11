@@ -271,21 +271,54 @@
                             $adaSurat = $tanggalBersurat->contains($iso);
                             $terpilih = $tanggal === $iso;
                             $hariBerjalan = $iso === $hariIni;
+                            $itemPeringatan = $peringatanKalender->get($iso, collect());
+                            $adaTerlambat = $itemPeringatan->contains('terlambat', true);
                         @endphp
-                        <a href="{{ route('surat.index', array_filter(['bulan' => $bulan, 'tanggal' => $terpilih ? null : $iso]) + $filterAktif) }}" class="relative flex h-8 items-center justify-center rounded-lg text-xs transition {{ ! $dalamBulanIni ? 'text-slate-300' : 'text-slate-600 hover:bg-slate-100' }} {{ $terpilih ? 'bg-brand-700 text-white hover:bg-brand-700' : '' }} {{ $hariBerjalan && ! $terpilih ? 'font-bold text-brand-700 ring-1 ring-inset ring-brand-200' : '' }}">
-                            {{ $kursor->day }}
+                        <div class="group relative">
+                            <a href="{{ route('surat.index', array_filter(['bulan' => $bulan, 'tanggal' => $terpilih ? null : $iso]) + $filterAktif) }}" class="relative flex h-8 w-full items-center justify-center rounded-lg text-xs transition {{ ! $dalamBulanIni ? 'text-slate-300' : 'text-slate-600 hover:bg-slate-100' }} {{ $terpilih ? 'bg-brand-700 text-white hover:bg-brand-700' : '' }} {{ $hariBerjalan && ! $terpilih ? 'font-bold text-brand-700 ring-1 ring-inset ring-brand-200' : '' }}">
+                                {{ $kursor->day }}
+                                @if ($adaSurat)
+                                    <span class="absolute bottom-0.5 h-1 w-1 rounded-full {{ $terpilih ? 'bg-white' : ($adaTerlambat ? 'bg-rose-600' : 'bg-brand-600') }}"></span>
+                                @endif
+                            </a>
+
                             @if ($adaSurat)
-                                <span class="absolute bottom-0.5 h-1 w-1 rounded-full {{ $terpilih ? 'bg-white' : 'bg-brand-600' }}"></span>
+                                <div class="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 hidden w-60 -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-lg group-hover:block">
+                                    <p class="mb-1.5 text-[11px] font-semibold text-slate-500">{{ $kursor->translatedFormat('d F Y') }}</p>
+                                    <ul class="space-y-1.5">
+                                        @foreach ($itemPeringatan->take(5) as $item)
+                                            <li class="text-xs">
+                                                <p class="font-medium text-slate-700">{{ $item['nomor_surat'] }}</p>
+                                                <p class="text-slate-500">{{ \Illuminate\Support\Str::limit($item['perihal'], 40) }}</p>
+                                                @if ($item['terlambat'])
+                                                    <p class="mt-0.5 inline-flex items-center gap-1 font-semibold text-rose-600">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                                                        Peringatan: melewati batas waktu disposisi
+                                                    </p>
+                                                @endif
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                    @if ($itemPeringatan->count() > 5)
+                                        <p class="mt-1.5 text-[11px] text-slate-400">+{{ $itemPeringatan->count() - 5 }} surat lainnya</p>
+                                    @endif
+                                </div>
                             @endif
-                        </a>
+                        </div>
                         @php $kursor->addDay(); @endphp
                     @endwhile
                 </div>
 
-                <p class="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
-                    <span class="h-1.5 w-1.5 rounded-full bg-brand-600"></span>
-                    Tanggal dengan surat
-                </p>
+                <div class="mt-3 space-y-1">
+                    <p class="flex items-center gap-1.5 text-[11px] text-slate-400">
+                        <span class="h-1.5 w-1.5 rounded-full bg-brand-600"></span>
+                        Tanggal dengan surat — arahkan kursor untuk melihat detail
+                    </p>
+                    <p class="flex items-center gap-1.5 text-[11px] text-slate-400">
+                        <span class="h-1.5 w-1.5 rounded-full bg-rose-600"></span>
+                        Ada surat yang melewati batas waktu disposisi
+                    </p>
+                </div>
             </div>
         </div>
     </div>

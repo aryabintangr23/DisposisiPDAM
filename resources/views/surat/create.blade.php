@@ -59,7 +59,8 @@
 
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Tanggal Diterima</label>
-                    <input type="date" name="tanggal_diterima" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <input type="date" name="tanggal_diterima" x-ref="tanggalDiterima" :disabled="arahSurat === 'keluar'" x-effect="if (arahSurat === 'keluar') { $refs.tanggalDiterima.value = ''; }" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
+                    <p class="mt-1.5 text-xs text-slate-400" x-show="arahSurat === 'keluar'" x-cloak>Tidak berlaku untuk surat keluar — dikosongkan otomatis.</p>
                 </div>
 
                 <div x-show="arahSurat === 'masuk'" x-cloak>

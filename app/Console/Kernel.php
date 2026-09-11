@@ -9,7 +9,8 @@ class Kernel extends ConsoleKernel
 {
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Tandai surat yang sudah melewati batas waktu prioritas sebagai "Ditolak" setiap hari.
+        $schedule->command('surat:tandai-terlambat')->dailyAt('00:05');
     }
 
     protected function commands(): void

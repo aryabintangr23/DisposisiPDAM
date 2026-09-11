@@ -3,6 +3,9 @@
 namespace App\Services;
 
 use App\Enums\Prioritas;
+use App\Enums\StatusSurat;
+use App\Models\LogAktivitas;
+use App\Models\Surat;
 use App\Models\User;
 use Carbon\Carbon;
 
@@ -64,5 +67,37 @@ class DisposisiRuleService
         }
 
         return false;
+    }
+
+    /**
+     * Tandai surat sebagai "Ditolak" secara otomatis jika disposisi terakhirnya
+     * sudah melewati batas waktu (berdasarkan prioritas) dan surat belum berstatus final
+     * (diterima/ditolak). Dipanggil saat daftar/detail surat diakses, dan juga lewat
+     * jadwal harian (lihat App\Console\Commands\TandaiSuratTerlambat).
+     */
+    public function tandaiOtomatisJikaTerlambat(Surat $surat): bool
+    {
+        if (in_array($surat->status->value, [StatusSurat::Diterima->value, StatusSurat::Ditolak->value], true)) {
+            return false;
+        }
+
+        $dispoTerakhir = $surat->relationLoaded('disposisi')
+            ? $surat->disposisi->last()
+            : $surat->disposisiTerakhir();
+
+        if (! $dispoTerakhir || ! $dispoTerakhir->isOverdue()) {
+            return false;
+        }
+
+        $surat->update(['status' => StatusSurat::Ditolak]);
+
+        LogAktivitas::catat(
+            'surat_ditolak_otomatis',
+            "Sistem menandai surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) sebagai \"Ditolak\" secara otomatis karena melewati batas waktu prioritas disposisi.",
+            'surat',
+            $surat->id
+        );
+
+        return true;
     }
 }
