@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Route;
 class RouteServiceProvider extends ServiceProvider
 {
     // Redirect default setelah login/autentikasi
-    public const HOME = '/surat';
+    public const HOME = '/dashboard';
 
     public function boot(): void
     {

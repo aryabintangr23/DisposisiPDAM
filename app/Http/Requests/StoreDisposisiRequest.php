@@ -16,8 +16,12 @@ class StoreDisposisiRequest extends FormRequest
 
     public function rules(): array
     {
+        // Staff selalu mengirim ke Kabag secara otomatis (ditentukan di controller),
+        // jadi field ini tidak wajib diisi dari form untuk Staff.
+        $penerimaWajib = ! $this->user()?->isStaff();
+
         return [
-            'penerima_id' => ['required', 'exists:users,id'],
+            'penerima_id' => [$penerimaWajib ? 'required' : 'nullable', 'exists:users,id'],
             'prioritas' => ['required', Rule::in(array_column(Prioritas::cases(), 'value'))],
             'instruksi' => ['nullable', 'string'],
 

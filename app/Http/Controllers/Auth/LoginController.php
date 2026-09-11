@@ -61,7 +61,7 @@ class LoginController extends Controller
         // Flag untuk pemicu pop-up pesan masuk (muncul sekali pas awal login)
         $request->session()->put('tampilkan_notif_login', true);
 
-        return redirect()->intended(route('surat.index'));
+        return redirect()->intended(route('dashboard'));
     }
 
     public function destroy(Request $request): RedirectResponse

@@ -18,6 +18,11 @@
             && $dispoTerakhir
             && $dispoTerakhir->pengirim?->isKabag()
             && $dispoTerakhir->penerima?->isDirektur();
+
+        // Untuk status "perlu revisi", edit hanya boleh selama disposisi masih di tangan
+        // Staff (belum dikirim balik ke Kabag).
+        $bisaEditSekarang = $surat->status->value === 'baru'
+            || ($surat->status->value === 'perlu_revisi' && $dispoTerakhir && $dispoTerakhir->penerima_id === auth()->id());
     @endphp
 
     <div class="mt-6 mb-6">
@@ -53,7 +58,7 @@
                 </span>
             @endif
 
-            @if (auth()->user()->isStaff() && $surat->created_by === auth()->id() && ! $sedangDitindaklanjuti && in_array($surat->status->value, ['baru', 'perlu_revisi'], true))
+            @if (auth()->user()->isStaff() && $surat->created_by === auth()->id() && ! $sedangDitindaklanjuti && $bisaEditSekarang && in_array($surat->status->value, ['baru', 'perlu_revisi'], true))
                 <a href="{{ route('surat.edit', $surat) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     Edit Surat
@@ -81,7 +86,9 @@
 
         $perluRevisiUntukStaff = auth()->user()->isStaff()
             && $surat->created_by === auth()->id()
-            && $surat->status->value === 'perlu_revisi';
+            && $surat->status->value === 'perlu_revisi'
+            && $dispoTerakhir
+            && $dispoTerakhir->penerima_id === auth()->id();
 
         $bisaReviewRevisi = auth()->user()->isKabag()
             && $dispoTerakhir
@@ -409,17 +416,24 @@
                     <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-brand-700">
                         {{ $isKirimRevisi ? 'Kirim Revisi' : 'Kirim Disposisi Baru' }}
                     </h3>
-                    <form method="POST" action="{{ route('disposisi.store', $surat) }}" class="space-y-4" x-data="{ penerimaRole: '' }">
+                    <form method="POST" action="{{ route('disposisi.store', $surat) }}" class="space-y-4" x-data="{ penerimaRole: '{{ auth()->user()->isStaff() ? 'kabag_umum' : '' }}' }">
                         @csrf
-                        <div>
-                            <label class="mb-1.5 block text-sm font-medium text-slate-700">Kirim ke</label>
-                            <select name="penerima_id" required x-on:change="penerimaRole = $event.target.options[$event.target.selectedIndex].dataset.role" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
-                                <option value="" data-role="" disabled selected>-- Pilih penerima --</option>
-                                @foreach ($penerimaOptions as $opt)
-                                    <option value="{{ $opt->id }}" data-role="{{ $opt->role->nama_role }}">{{ $opt->nama }} ({{ ucwords(str_replace('_',' ',$opt->role->nama_role)) }})</option>
-                                @endforeach
-                            </select>
-                        </div>
+                        @if (auth()->user()->isStaff())
+                            <div class="flex items-center gap-2 rounded-lg bg-slate-50 px-3.5 py-2.5 text-sm text-slate-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2h2m10 0V6a2 2 0 00-2-2H9a2 2 0 00-2 2v2m10 0H7" /></svg>
+                                Akan dikirim ke <span class="font-semibold text-slate-800">Kabag Umum</span>
+                            </div>
+                        @else
+                            <div>
+                                <label class="mb-1.5 block text-sm font-medium text-slate-700">Kirim ke</label>
+                                <select name="penerima_id" required x-on:change="penerimaRole = $event.target.options[$event.target.selectedIndex].dataset.role" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                                    <option value="" data-role="" disabled selected>-- Pilih penerima --</option>
+                                    @foreach ($penerimaOptions as $opt)
+                                        <option value="{{ $opt->id }}" data-role="{{ $opt->role->nama_role }}">{{ $opt->nama }} ({{ ucwords(str_replace('_',' ',$opt->role->nama_role)) }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
                         <div>
                             <label class="mb-1.5 block text-sm font-medium text-slate-700">Prioritas</label>
                             <select name="prioritas" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">

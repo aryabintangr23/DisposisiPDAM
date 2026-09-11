@@ -34,8 +34,8 @@ class StoreSuratRequest extends FormRequest
             // PDF, JPG, dan DOCX, maksimal 10MB per file.
             'lampiran.*' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,docx', 'max:10240'],
 
-            // Lembar disposisi pertama (Staff -> Kabag), dibuat bersamaan dengan surat.
-            'penerima_id' => ['required', 'exists:users,id'],
+            // Lembar disposisi pertama (Staff -> Kabag) dibuat bersamaan dengan surat;
+            // penerima selalu Kabag, ditentukan otomatis di controller (bukan dari input).
             'prioritas' => ['required', Rule::in(array_column(Prioritas::cases(), 'value'))],
             'instruksi' => ['nullable', 'string'],
         ];

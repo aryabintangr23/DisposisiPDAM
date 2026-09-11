@@ -96,9 +96,9 @@ class SuratController extends Controller
     {
         $this->authorizeStaffOnly($request);
 
-        $kabagList = User::whereHas('role', fn ($q) => $q->where('nama_role', 'kabag_umum'))->get();
+        $kabag = User::whereHas('role', fn ($q) => $q->where('nama_role', 'kabag_umum'))->first();
 
-        return view('surat.create', compact('kabagList'));
+        return view('surat.create', compact('kabag'));
     }
 
     /**
@@ -139,8 +139,9 @@ class SuratController extends Controller
             }
         }
 
-        // Buat lembar disposisi pertama dari Staff ke Kabag
-        $penerima = User::findOrFail($data['penerima_id']);
+        // Buat lembar disposisi pertama dari Staff ke Kabag (tujuan selalu Kabag, tidak perlu dipilih manual)
+        $penerima = User::whereHas('role', fn ($q) => $q->where('nama_role', 'kabag_umum'))->first();
+        abort_unless($penerima, 422, 'Tidak ada akun Kabag Umum yang terdaftar untuk menerima disposisi ini.');
         abort_unless($rule->bolehDisposisi($request->user(), $penerima), 403, 'Tujuan disposisi tidak sesuai alur yang diizinkan.');
 
         $prioritas = Prioritas::from($data['prioritas']);
@@ -455,6 +456,19 @@ class SuratController extends Controller
         abort_unless($user->isStaff() && $user->sameRoleAs($surat->pembuat), 403, 'Anda tidak memiliki akses untuk mengedit surat ini.');
 
         abort_unless(in_array($surat->status->value, ['baru', 'perlu_revisi'], true), 403, 'Surat yang sudah diputuskan (diterima/ditolak) tidak bisa diedit lagi.');
+
+        // Saat status "perlu revisi", edit hanya boleh selama disposisi masih di tangan Staff
+        // (belum dikirim balik ke Kabag). Begitu dikirim ke Kabag, akses edit ditutup sampai
+        // Kabag me-review lagi dan mengembalikannya.
+        if ($surat->status->value === 'perlu_revisi') {
+            $dispoTerakhir = $surat->disposisiTerakhir();
+
+            abort_unless(
+                $dispoTerakhir && $dispoTerakhir->penerima_id === $user->id,
+                403,
+                'Revisi surat ini sudah dikirim ke Kabag dan sedang menunggu review, tidak bisa diedit lagi.'
+            );
+        }
     }
 
     private function authorizeAkses(Request $request, Surat $surat): void
