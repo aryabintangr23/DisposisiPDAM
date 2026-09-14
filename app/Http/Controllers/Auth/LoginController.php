@@ -58,8 +58,11 @@ class LoginController extends Controller
 
         LogAktivitas::catat('login_berhasil', "{$request->user()->nama} berhasil login.");
 
-        // Flag untuk pemicu pop-up pesan masuk (muncul sekali pas awal login)
-        $request->session()->put('tampilkan_notif_login', true);
+        // Flag untuk pemicu pop-up pesan masuk (muncul sekali pas awal login).
+        // Tidak berlaku untuk Admin karena halaman Pesan tidak dipakai oleh Admin.
+        if (! $request->user()->isAdmin()) {
+            $request->session()->put('tampilkan_notif_login', true);
+        }
 
         return redirect()->intended(route('dashboard'));
     }

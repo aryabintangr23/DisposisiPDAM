@@ -10,6 +10,20 @@ use Illuminate\View\View;
 
 class MessageController extends Controller
 {
+    public function __construct()
+    {
+        // Halaman Pesan tidak dipakai oleh user Admin.
+        $this->middleware(function (Request $request, \Closure $next) {
+            abort_if(
+                auth()->check() && auth()->user()->isAdmin(),
+                403,
+                'Halaman Pesan tidak tersedia untuk Admin.'
+            );
+
+            return $next($request);
+        });
+    }
+
     /**
      * Tampilkan daftar pesan (masuk/keluar).
      */

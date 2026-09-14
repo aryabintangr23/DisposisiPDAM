@@ -80,9 +80,9 @@
             </div>
 
             <div class="mt-5">
-                <label class="mb-1.5 block text-sm font-medium text-slate-700">Lampiran <span class="font-normal text-slate-400">(PDF, boleh lebih dari satu)</span></label>
+                <label class="mb-1.5 block text-sm font-medium text-slate-700">Lampiran <span class="font-normal text-slate-400">(PDF, JPG, atau HEIC, boleh lebih dari satu)</span></label>
                 <div class="rounded-lg border-2 border-dashed border-slate-300 px-4 py-6 text-center transition hover:border-brand-400">
-                    <input type="file" name="lampiran[]" multiple accept="application/pdf" class="w-full text-sm text-slate-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand-700 hover:file:bg-brand-100">
+                    <input type="file" name="lampiran[]" multiple accept=".pdf,.jpg,.jpeg,.heic,application/pdf,image/jpeg,image/heic" class="w-full text-sm text-slate-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand-700 hover:file:bg-brand-100">
                 </div>
             </div>
         </div>

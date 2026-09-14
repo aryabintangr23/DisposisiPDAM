@@ -83,12 +83,14 @@
                     Surat Keluar
                 </a>
 
-                <a href="{{ route('pesan.index') }}" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition {{ request()->routeIs('pesan.*') && !request()->routeIs('pesan.sampah') ? 'bg-white/10 text-white' : 'text-brand-100 hover:bg-white/5 hover:text-white' }}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    Pesan
-                </a>
+                @unless (auth()->check() && auth()->user()->isAdmin())
+                    <a href="{{ route('pesan.index') }}" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition {{ request()->routeIs('pesan.*') && !request()->routeIs('pesan.sampah') ? 'bg-white/10 text-white' : 'text-brand-100 hover:bg-white/5 hover:text-white' }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Pesan
+                    </a>
+                @endunless
 
                 <!-- Menu Khusus Admin -->
                 @if (auth()->check() && auth()->user()->isAdmin())
@@ -107,17 +109,19 @@
                     </a>
                 @endif
 
-                <p class="mt-5 mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-300">Tempat Sampah</p>
+                @unless (auth()->check() && auth()->user()->isAdmin())
+                    <p class="mt-5 mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-300">Tempat Sampah</p>
 
-                @php
-                    $urlSampah = auth()->check() && (auth()->user()->isStaff() || auth()->user()->isKabag()) ? route('surat.sampah') : route('pesan.sampah');
-                @endphp
-                <a href="{{ $urlSampah }}" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition {{ request()->routeIs('surat.sampah') || request()->routeIs('pesan.sampah') ? 'bg-white/10 text-white' : 'text-brand-100 hover:bg-white/5 hover:text-white' }}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Sampah
-                </a>
+                    @php
+                        $urlSampah = auth()->check() && (auth()->user()->isStaff() || auth()->user()->isKabag()) ? route('surat.sampah') : route('pesan.sampah');
+                    @endphp
+                    <a href="{{ $urlSampah }}" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition {{ request()->routeIs('surat.sampah') || request()->routeIs('pesan.sampah') ? 'bg-white/10 text-white' : 'text-brand-100 hover:bg-white/5 hover:text-white' }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Sampah
+                    </a>
+                @endunless
             </nav>
 
             @auth
@@ -184,17 +188,19 @@
 
                 @auth
                     <div class="flex items-center gap-3">
-                        <a href="{{ route('pesan.index') }}" title="Pesan" class="relative rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-brand-700 {{ request()->routeIs('pesan.*') ? 'bg-brand-50 text-brand-700' : '' }}">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                            @php $jumlahBelumDibaca = auth()->user()->jumlahPesanBelumDibaca(); @endphp
-                            @if ($jumlahBelumDibaca > 0)
-                                <span class="absolute -right-0.5 -top-0.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[10px] font-bold text-white">
-                                    {{ $jumlahBelumDibaca > 9 ? '9+' : $jumlahBelumDibaca }}
-                                </span>
-                            @endif
-                        </a>
+                        @unless (auth()->user()->isAdmin())
+                            <a href="{{ route('pesan.index') }}" title="Pesan" class="relative rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-brand-700 {{ request()->routeIs('pesan.*') ? 'bg-brand-50 text-brand-700' : '' }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                @php $jumlahBelumDibaca = auth()->user()->jumlahPesanBelumDibaca(); @endphp
+                                @if ($jumlahBelumDibaca > 0)
+                                    <span class="absolute -right-0.5 -top-0.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[10px] font-bold text-white">
+                                        {{ $jumlahBelumDibaca > 9 ? '9+' : $jumlahBelumDibaca }}
+                                    </span>
+                                @endif
+                            </a>
+                        @endunless
                         <span class="hidden rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 sm:inline-block">
                             {{ ucwords(str_replace('_', ' ', auth()->user()->role->nama_role)) }}
                         </span>
