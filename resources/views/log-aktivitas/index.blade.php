@@ -90,6 +90,48 @@
 
     @push('scripts')
     <script>
+        // Ubah timestamp "Waktu" menjadi format relatif (mis. "5 detik yang lalu") dan
+        // diperbarui sendiri setiap detik secara real-time, tanpa perlu reload halaman.
+        function formatWaktuRelatif(tanggalIso) {
+            const detik = Math.floor((Date.now() - new Date(tanggalIso).getTime()) / 1000);
+
+            if (detik < 5) return 'Baru saja';
+            if (detik < 60) return detik + ' detik yang lalu';
+
+            const menit = Math.floor(detik / 60);
+            if (menit < 60) return menit + ' menit yang lalu';
+
+            const jam = Math.floor(menit / 60);
+            if (jam < 24) return jam + ' jam yang lalu';
+
+            const hari = Math.floor(jam / 24);
+            if (hari < 7) return hari + ' hari yang lalu';
+
+            return new Date(tanggalIso).toLocaleString('id-ID');
+        }
+
+        function perbaruiWaktuRelatif() {
+            document.querySelectorAll('.waktu-relatif').forEach((el) => {
+                const iso = el.dataset.created;
+                if (!iso) return;
+                el.textContent = formatWaktuRelatif(iso);
+            });
+        }
+
+        function jalankanJamRelatifLogAktivitas() {
+            if (window.__waktuRelatifInterval) {
+                clearInterval(window.__waktuRelatifInterval);
+            }
+            perbaruiWaktuRelatif();
+            window.__waktuRelatifInterval = setInterval(perbaruiWaktuRelatif, 1000);
+        }
+
+        document.addEventListener('DOMContentLoaded', jalankanJamRelatifLogAktivitas);
+        document.addEventListener('turbo:render', jalankanJamRelatifLogAktivitas);
+        document.addEventListener('turbo:before-cache', () => {
+            if (window.__waktuRelatifInterval) clearInterval(window.__waktuRelatifInterval);
+        });
+
         function jalankanPollingLogAktivitas() {
             const tabel = document.getElementById('tabel-log-aktivitas');
             if (!tabel) return;

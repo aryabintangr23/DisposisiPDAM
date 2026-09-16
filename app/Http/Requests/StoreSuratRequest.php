@@ -27,16 +27,17 @@ class StoreSuratRequest extends FormRequest
 
             // surat_dari relevan untuk surat masuk, tujuan_surat untuk surat keluar.
             'surat_dari' => ['nullable', 'required_if:arah_surat,masuk', 'string', 'max:255'],
-            'tujuan_surat' => ['nullable', 'required_if:arah_surat,keluar', 'string', 'max:255'],
+            'tujuan_surat' => ['nullable', 'required_if:arah_surat,keluar', 'string'],
 
             'perihal' => ['required', 'string'],
 
             // PDF, JPG, dan HEIC, maksimal 10MB per file.
             'lampiran.*' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,heic', 'max:10240'],
 
-            // Lembar disposisi pertama (Staff -> Kabag) dibuat bersamaan dengan surat;
+            // Lembar disposisi pertama (Staff -> Kabag) hanya dibuat untuk surat masuk;
             // penerima selalu Kabag, ditentukan otomatis di controller (bukan dari input).
-            'prioritas' => ['required', Rule::in(array_column(Prioritas::cases(), 'value'))],
+            // Surat keluar cukup disimpan tanpa mengirim disposisi.
+            'prioritas' => ['nullable', 'required_if:arah_surat,masuk', Rule::in(array_column(Prioritas::cases(), 'value'))],
             'instruksi' => ['nullable', 'string'],
         ];
     }

@@ -68,10 +68,11 @@
                     <input type="text" name="surat_dari" :required="arahSurat === 'masuk'" value="{{ old('surat_dari', $surat->surat_dari) }}" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                 </div>
 
-                <div x-show="arahSurat === 'keluar'" x-cloak>
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Tujuan Surat</label>
-                    <input type="text" name="tujuan_surat" :required="arahSurat === 'keluar'" value="{{ old('tujuan_surat', $surat->tujuan_surat) }}" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
-                </div>
+            </div>
+
+            <div class="mt-5" x-show="arahSurat === 'keluar'" x-cloak>
+                <label class="mb-1.5 block text-sm font-medium text-slate-700">Tujuan Surat</label>
+                <textarea name="tujuan_surat" :required="arahSurat === 'keluar'" rows="4" placeholder="Boleh lebih dari satu tujuan, tulis masing-masing di baris baru…" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">{{ old('tujuan_surat', $surat->tujuan_surat) }}</textarea>
             </div>
 
             <div class="mt-5">

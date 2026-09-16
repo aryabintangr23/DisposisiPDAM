@@ -28,7 +28,7 @@ class UpdateSuratRequest extends FormRequest
             // surat keluar — field yang tidak relevan disembunyikan di form
             // (lihat JS di surat/edit.blade.php) dan tidak wajib diisi.
             'surat_dari' => ['nullable', 'required_if:arah_surat,masuk', 'string', 'max:255'],
-            'tujuan_surat' => ['nullable', 'required_if:arah_surat,keluar', 'string', 'max:255'],
+            'tujuan_surat' => ['nullable', 'required_if:arah_surat,keluar', 'string'],
 
             'perihal' => ['required', 'string'],
 

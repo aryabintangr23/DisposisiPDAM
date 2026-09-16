@@ -6,7 +6,9 @@
         @endif
     >
         <td class="whitespace-nowrap px-5 py-3 text-xs text-slate-500">
-            {{ $log->created_at->format('d-m-Y H:i:s') }}
+            <span class="waktu-relatif" data-created="{{ $log->created_at->toIso8601String() }}" title="{{ $log->created_at->format('d-m-Y H:i:s') }}">
+                {{ $log->created_at->format('d-m-Y H:i:s') }}
+            </span>
         </td>
         <td class="px-5 py-3">
             @if ($log->user)

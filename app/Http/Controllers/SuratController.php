@@ -168,32 +168,44 @@ class SuratController extends Controller
             }
         }
 
-        // Buat lembar disposisi pertama dari Staff ke Kabag (tujuan selalu Kabag, tidak perlu dipilih manual)
-        $penerima = User::whereHas('role', fn ($q) => $q->where('nama_role', 'kabag_umum'))->first();
-        abort_unless($penerima, 422, 'Tidak ada akun Kabag Umum yang terdaftar untuk menerima disposisi ini.');
-        abort_unless($rule->bolehDisposisi($request->user(), $penerima), 403, 'Tujuan disposisi tidak sesuai alur yang diizinkan.');
+        // Lembar disposisi pertama hanya dibuat untuk surat masuk (Staff -> Kabag, tujuan
+        // selalu Kabag, tidak perlu dipilih manual). Surat keluar cukup disimpan sebagai arsip.
+        if ($data['arah_surat'] === 'masuk') {
+            $penerima = User::whereHas('role', fn ($q) => $q->where('nama_role', 'kabag_umum'))->first();
+            abort_unless($penerima, 422, 'Tidak ada akun Kabag Umum yang terdaftar untuk menerima disposisi ini.');
+            abort_unless($rule->bolehDisposisi($request->user(), $penerima), 403, 'Tujuan disposisi tidak sesuai alur yang diizinkan.');
 
-        $prioritas = Prioritas::from($data['prioritas']);
-        $tanggalDisposisi = now();
+            $prioritas = Prioritas::from($data['prioritas']);
+            $tanggalDisposisi = now();
 
-        $surat->disposisi()->create([
-            'pengirim_id' => $request->user()->id,
-            'penerima_id' => $penerima->id,
-            'tanggal_disposisi' => $tanggalDisposisi,
-            'prioritas' => $prioritas,
-            'batas_waktu' => $rule->hitungBatasWaktu($tanggalDisposisi, $prioritas),
-            'instruksi' => $data['instruksi'] ?? null,
-            'status' => StatusDisposisi::Terkirim,
-        ]);
+            $surat->disposisi()->create([
+                'pengirim_id' => $request->user()->id,
+                'penerima_id' => $penerima->id,
+                'tanggal_disposisi' => $tanggalDisposisi,
+                'prioritas' => $prioritas,
+                'batas_waktu' => $rule->hitungBatasWaktu($tanggalDisposisi, $prioritas),
+                'instruksi' => $data['instruksi'] ?? null,
+                'status' => StatusDisposisi::Terkirim,
+            ]);
+
+            LogAktivitas::catat(
+                'surat_dibuat',
+                "{$request->user()->nama} membuat surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) dan mengirim disposisi awal ke {$penerima->nama}.",
+                'surat',
+                $surat->id
+            );
+
+            return redirect()->route('surat.show', $surat)->with('status', 'Surat dan lembar disposisi berhasil dibuat.');
+        }
 
         LogAktivitas::catat(
             'surat_dibuat',
-            "{$request->user()->nama} membuat surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) dan mengirim disposisi awal ke {$penerima->nama}.",
+            "{$request->user()->nama} membuat surat keluar \"{$surat->perihal}\" (No. {$surat->nomor_surat}).",
             'surat',
             $surat->id
         );
 
-        return redirect()->route('surat.show', $surat)->with('status', 'Surat dan lembar disposisi berhasil dibuat.');
+        return redirect()->route('surat.show', $surat)->with('status', 'Surat berhasil disimpan.');
     }
 
     /**

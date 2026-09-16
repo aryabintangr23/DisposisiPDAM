@@ -23,8 +23,8 @@ return new class extends Migration
             $table->date('tanggal_surat');
             $table->date('tanggal_diterima')->nullable();
 
-            $table->string('surat_dari')->nullable();   // Asal surat (surat masuk)
-            $table->string('tujuan_surat')->nullable(); // Tujuan surat (surat keluar)
+            $table->string('surat_dari')->nullable(); // Asal surat (surat masuk)
+            $table->text('tujuan_surat')->nullable(); // Tujuan surat (surat keluar), boleh lebih dari satu baris
 
             $table->text('perihal');
 

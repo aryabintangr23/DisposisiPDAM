@@ -9,14 +9,14 @@
             Kembali ke Daftar Surat
         </a>
         <h2 class="mt-2 text-2xl font-bold text-slate-800">Input Surat Baru</h2>
-        <p class="mt-1 text-sm text-slate-500">Lengkapi data surat dan kirim lembar disposisi pertama ke Kabag Umum.</p>
+        <p class="mt-1 text-sm text-slate-500">Lengkapi data surat. Untuk surat masuk, lembar disposisi pertama otomatis dikirim ke Kabag Umum.</p>
     </div>
 
-    <form method="POST" action="{{ route('surat.store') }}" enctype="multipart/form-data" class="space-y-6">
+    <form method="POST" action="{{ route('surat.store') }}" enctype="multipart/form-data" class="space-y-6" x-data="{ arahSurat: '{{ old('arah_surat', 'masuk') }}' }">
         @csrf
 
         <!-- Section: Data Surat -->
-        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm" x-data="{ arahSurat: '{{ old('arah_surat', 'masuk') }}' }">
+        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h3 class="mb-1 text-sm font-semibold uppercase tracking-wide text-brand-700">Data Surat</h3>
             <p class="mb-5 text-sm text-slate-500">Informasi dasar mengenai surat yang diterima/dikirim.</p>
 
@@ -68,10 +68,11 @@
                     <input type="text" name="surat_dari" :required="arahSurat === 'masuk'" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                 </div>
 
-                <div x-show="arahSurat === 'keluar'" x-cloak>
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Tujuan Surat</label>
-                    <input type="text" name="tujuan_surat" :required="arahSurat === 'keluar'" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
-                </div>
+            </div>
+
+            <div class="mt-5" x-show="arahSurat === 'keluar'" x-cloak>
+                <label class="mb-1.5 block text-sm font-medium text-slate-700">Tujuan Surat</label>
+                <textarea name="tujuan_surat" :required="arahSurat === 'keluar'" rows="4" placeholder="Boleh lebih dari satu tujuan, tulis masing-masing di baris baru…" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">{{ old('tujuan_surat') }}</textarea>
             </div>
 
             <div class="mt-5">
@@ -87,8 +88,8 @@
             </div>
         </div>
 
-        <!-- Section: Disposisi Pertama -->
-        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <!-- Section: Disposisi Pertama (hanya untuk surat masuk) -->
+        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm" x-show="arahSurat === 'masuk'" x-cloak>
             <h3 class="mb-1 text-sm font-semibold uppercase tracking-wide text-brand-700">Lembar Disposisi Pertama</h3>
             <p class="mb-5 text-sm text-slate-500">Dikirim ke Kabag Umum untuk ditindaklanjuti.</p>
 
@@ -107,7 +108,7 @@
 
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Prioritas</label>
-                    <select name="prioritas" required class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <select name="prioritas" :required="arahSurat === 'masuk'" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
                         <option value="sangat_segera">Sangat Segera (3 hari)</option>
                         <option value="segera">Segera (5 hari)</option>
                         <option value="biasa">Biasa (7 hari)</option>
@@ -128,7 +129,7 @@
             </a>
             <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                Simpan &amp; Kirim Disposisi
+                <span x-text="arahSurat === 'keluar' ? 'Simpan' : 'Simpan & Kirim Disposisi'"></span>
             </button>
         </div>
     </form>
