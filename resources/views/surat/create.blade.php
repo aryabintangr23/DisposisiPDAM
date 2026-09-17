@@ -29,9 +29,42 @@
                     </select>
                 </div>
 
-                <div>
+                <div
+                    x-data="{
+                        opsiJenisSurat: ['Surat Biasa', 'Surat Penawaran', 'Surat Undangan', 'Surat Bantuan', 'Surat Lain-lain'],
+                        jenisSurat: @js(old('jenis_surat', '')),
+                        jenisSuratLainnya: @js(old('jenis_surat_lainnya', '')),
+                        init() {
+                            if (this.jenisSurat && !this.opsiJenisSurat.includes(this.jenisSurat)) {
+                                this.jenisSuratLainnya = this.jenisSurat;
+                                this.jenisSurat = 'Surat Lain-lain';
+                            }
+                        }
+                    }"
+                >
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Jenis Surat</label>
-                    <input type="text" name="jenis_surat" value="{{ old('jenis_surat') }}" required placeholder="Contoh: Surat Undangan" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <select
+                        x-model="jenisSurat"
+                        :name="jenisSurat === 'Surat Lain-lain' ? '' : 'jenis_surat'"
+                        required
+                        class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                    >
+                        <option value="" disabled>Pilih jenis surat</option>
+                        <template x-for="opsi in opsiJenisSurat" :key="opsi">
+                            <option :value="opsi" x-text="opsi"></option>
+                        </template>
+                    </select>
+
+                    <div class="mt-2.5" x-show="jenisSurat === 'Surat Lain-lain'" x-cloak>
+                        <input
+                            type="text"
+                            x-model="jenisSuratLainnya"
+                            :name="jenisSurat === 'Surat Lain-lain' ? 'jenis_surat' : ''"
+                            :required="jenisSurat === 'Surat Lain-lain'"
+                            placeholder="Sebutkan jenis surat lainnya"
+                            class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                        >
+                    </div>
                 </div>
 
                 <div>
@@ -195,4 +228,4 @@
             })();
         </script>
     @endpush
-@endsection
+@endsectiongiy
