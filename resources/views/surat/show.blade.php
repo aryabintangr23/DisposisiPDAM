@@ -16,7 +16,6 @@
 
         $sedangDitindaklanjuti = $surat->status->value === 'baru'
             && $dispoTerakhir
-            && $dispoTerakhir->pengirim?->isKabag()
             && $dispoTerakhir->penerima?->isDirektur();
 
         // Untuk status "perlu revisi", edit hanya boleh selama disposisi masih di tangan
@@ -90,29 +89,36 @@
             && $dispoTerakhir
             && $dispoTerakhir->penerima_id === auth()->id();
 
-        $bisaReviewRevisi = auth()->user()->isKabag()
+        $bisaReviewRevisi = (auth()->user()->isKasubag() || auth()->user()->isKabag())
             && $dispoTerakhir
             && $dispoTerakhir->penerima_id === auth()->id()
             && $surat->status->value === 'perlu_revisi';
 
-        $bisaReviewBaru = auth()->user()->isKabag()
+        $bisaReviewBaru = (auth()->user()->isKasubag() || auth()->user()->isKabag())
             && $dispoTerakhir
             && $dispoTerakhir->penerima_id === auth()->id()
-            && $dispoTerakhir->pengirim?->isStaff()
+            && in_array($dispoTerakhir->pengirim?->role?->nama_role, ['staff_umum', 'kasubag_umum'], true)
             && $surat->status->value === 'baru';
+
+        // Tahap penerusan review (Kasubag -> Kabag, Kabag -> Direktur)
+        $tujuanTahapBerikutnya = auth()->user()?->isKasubag() ? 'Kabag Umum' : 'Direktur';
     @endphp
 
     @if ($perluRevisiUntukStaff)
+        @php
+            $pengajuRevisi = $dispoTerakhir->pengirim;
+            $labelPengajuRevisi = ucwords(str_replace('_', ' ', (string) $pengajuRevisi?->role?->nama_role));
+        @endphp
         <div class="mb-6 rounded-xl border border-orange-200 bg-orange-50 p-5">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-orange-800">Perlu Revisi</h3>
             <p class="mt-1 text-sm text-orange-800/80">
-                {{ $dispoTerakhir->pengirim->nama }} (Kabag) meminta Anda merevisi surat ini
+                {{ $pengajuRevisi?->nama ?? 'Pihak terkait' }} ({{ $labelPengajuRevisi }}) meminta Anda merevisi surat ini
                 @if ($dispoTerakhir->instruksi)
                     dengan catatan: &ldquo;{{ $dispoTerakhir->instruksi }}&rdquo;.
                 @else
                     .
                 @endif
-                Silakan edit data surat, lalu kirim kembali sebagai revisi ke Kabag.
+                Silakan edit data surat, lalu kirim kembali sebagai revisi.
             </p>
             <a href="{{ route('surat.edit', $surat) }}" class="mt-4 inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -125,8 +131,8 @@
         <div class="mb-6 rounded-xl border border-brand-200 bg-brand-50 p-5">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-brand-800">Tinjau Surat Masuk</h3>
             <p class="mt-1 text-sm text-brand-800/80">
-                {{ $dispoTerakhir->pengirim->nama }} (Staff) mengirim surat ini kepada Anda.
-                Pilih <strong>Approve</strong> untuk menyetujui &mdash; {{ $dispoTerakhir->pengirim->nama }} akan diberi tahu dan surat otomatis diteruskan ke Direktur &mdash; atau <strong>Revisi</strong> untuk mengirimkannya kembali ke {{ $dispoTerakhir->pengirim->nama }} untuk diperbaiki.
+                {{ $dispoTerakhir->pengirim?->nama ?? 'Staff' }} ({{ ucwords(str_replace('_', ' ', (string) $dispoTerakhir->pengirim?->role?->nama_role)) }}) mengirim surat ini kepada Anda.
+                Pilih <strong>Approve</strong> untuk menyetujui &mdash; surat otomatis diteruskan ke {{ $tujuanTahapBerikutnya }} &mdash; atau <strong>Revisi</strong> untuk mengirimkannya kembali ke Staff pembuat untuk diperbaiki.
             </p>
             <form method="POST" action="{{ route('disposisi.reviewBaru', $surat) }}" class="mt-4 space-y-3">
                 @csrf
@@ -149,8 +155,8 @@
         <div class="mb-6 rounded-xl border border-brand-200 bg-brand-50 p-5">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-brand-800">Review Revisi</h3>
             <p class="mt-1 text-sm text-brand-800/80">
-                {{ $dispoTerakhir->pengirim->nama }} (Staff) sudah mengirim kembali surat yang direvisi.
-                Periksa perubahannya, lalu tandai <strong>Diterima</strong> kalau sudah sesuai, atau <strong>Minta Revisi Lagi</strong> kalau masih belum.
+                {{ $dispoTerakhir->pengirim?->nama ?? 'Staff' }} ({{ ucwords(str_replace('_', ' ', (string) $dispoTerakhir->pengirim?->role?->nama_role)) }}) sudah mengirim kembali surat yang direvisi.
+                Periksa perubahannya, lalu tandai <strong>Diterima</strong> kalau sudah sesuai (surat otomatis diteruskan ke {{ $tujuanTahapBerikutnya }}), atau <strong>Minta Revisi Lagi</strong> kalau masih belum.
             </p>
             <form method="POST" action="{{ route('disposisi.reviewRevisi', $surat) }}" class="mt-4 space-y-3">
                 @csrf
@@ -173,11 +179,32 @@
         <div class="mb-6 rounded-xl border border-brand-200 bg-brand-50 p-5">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-brand-800">Keputusan Surat</h3>
             <p class="mt-1 text-sm text-brand-800/80">
-                Surat ini menunggu keputusan Anda. Pilih Terima atau Tolak — keputusan akan otomatis dikirim sebagai disposisi balasan ke {{ $dispoTerakhir->pengirim->nama }} (Kabag) dan status surat akan diperbarui.
+                Surat ini menunggu keputusan Anda. Pilih jabatan tujuan disposisi, lalu pilih <strong>Terima</strong> atau <strong>Tolak</strong> — status surat akan diperbarui menjadi final dan seluruh pihak yang terlibat dalam alur akan diberi tahu.
             </p>
-            <form method="POST" action="{{ route('disposisi.keputusan', $surat) }}" class="mt-4 space-y-3">
+            <form method="POST" action="{{ route('disposisi.keputusan', $surat) }}" class="mt-4 space-y-3" x-data="{ jabatan: '', jabatanLain: '' }">
                 @csrf
-                <textarea name="catatan" rows="2" placeholder="Catatan (opsional)" class="w-full rounded-lg border border-brand-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"></textarea>
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Disposisi keputusan ke jabatan</label>
+                    <select name="tujuan_jabatan" required x-model="jabatan" class="w-full rounded-lg border border-brand-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                        <option value="" disabled selected>-- Pilih jabatan tujuan disposisi --</option>
+                        @foreach ($tujuanJabatan as $jab)
+                            <option value="{{ $jab }}">{{ $jab }}</option>
+                        @endforeach
+                        <option value="{{ $jabatanLainnya }}">Lainnya... </option>
+                    </select>
+                    <p class="mt-1 text-xs text-slate-500">Pilih dari daftar dropdown; untuk ganti jabatan tinggal klik kembali.</p>
+                </div>
+                <div x-show="jabatan === '{{ $jabatanLainnya }}'" x-cloak>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Jabatan lainnya</label>
+                    <input type="text" name="tujuan_jabatan_lain" x-model="jabatanLain" :required="jabatan === '{{ $jabatanLainnya }}'" placeholder="Ketik nama jabatan tujuan" class="w-full rounded-lg border border-brand-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <p class="mt-1 text-xs text-slate-500">Ketik nama jabatan yang tidak ada di daftar.</p>
+                </div>
+                <div x-show="jabatan === 'Kepala Unit' || jabatan === 'Kasubag' || (jabatan === '{{ $jabatanLainnya }}' && ('kepala unit' === jabatanLain.trim().toLowerCase() || 'kasubag' === jabatanLain.trim().toLowerCase()))" x-cloak>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Bagian</label>
+                    <input type="text" name="tujuan_bagian" :required="jabatan === 'Kepala Unit' || jabatan === 'Kasubag' || (jabatan === '{{ $jabatanLainnya }}' && ('kepala unit' === jabatanLain.trim().toLowerCase() || 'kasubag' === jabatanLain.trim().toLowerCase()))" placeholder="Contoh: Sub Bagian Keuangan" class="w-full rounded-lg border border-brand-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <p class="mt-1 text-xs text-slate-500">Wajib diisi untuk jabatan Kepala Unit / Kasubag — tulis nama bagiannya.</p>
+                </div>
+                <textarea name="catatan" rows="2" placeholder="Instruksi / catatan (opsional)" class="w-full rounded-lg border border-brand-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"></textarea>
                 <div class="flex flex-col gap-3 sm:flex-row">
                     <button type="submit" name="keputusan" value="diterima" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -308,10 +335,10 @@
                 </p>
                 <p class="mt-1">
                     @if ($sudahKirimMenunggu)
-                        Anda sudah mengirim disposisi untuk surat ini ke {{ $dispoTerakhir->penerima->nama }} dan sedang menunggu tindak lanjutnya.
+                        Anda sudah mengirim disposisi untuk surat ini ke {{ $dispoTerakhir->penerima?->nama ?? $dispoTerakhir->keTujuanLabel() }} dan sedang menunggu tindak lanjutnya.
                         Form kirim disposisi akan terbuka lagi begitu ada balasan.
                     @else
-                        Surat ini sudah disetujui Kabag dan sedang ditindaklanjuti oleh {{ $dispoTerakhir->penerima->nama }} (Direktur).
+                        Surat ini sudah disetujui dan sedang ditindaklanjuti oleh {{ $dispoTerakhir->penerima?->nama }} ({{ ucwords(str_replace('_', ' ', (string) $dispoTerakhir->penerima?->role?->nama_role)) }}).
                         Form kirim disposisi akan terbuka lagi kalau ada tindak lanjut yang butuh perhatian Anda.
                     @endif
                 </p>
@@ -321,12 +348,17 @@
                 <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-brand-700">
                     {{ $isKirimRevisi ? 'Kirim Revisi' : 'Kirim Disposisi Baru' }}
                 </h3>
-                <form method="POST" action="{{ route('disposisi.store', $surat) }}" class="space-y-4" x-data="{ penerimaRole: '{{ auth()->user()->isStaff() ? 'kabag_umum' : '' }}' }">
+                @php
+                    $tujuanStaffLabel = $staffTujuan
+                        ? $staffTujuan->nama.' ('.ucwords(str_replace('_', ' ', (string) $staffTujuan->role?->nama_role)).')'
+                        : 'penerima otomatis';
+                @endphp
+                <form method="POST" action="{{ route('disposisi.store', $surat) }}" class="space-y-4" x-data="{ penerimaRole: '{{ auth()->user()->isStaff() ? 'kasubag_umum' : '' }}' }">
                     @csrf
                     @if (auth()->user()->isStaff())
                         <div class="flex items-center gap-2 rounded-lg bg-slate-50 px-3.5 py-2.5 text-sm text-slate-600">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2h2m10 0V6a2 2 0 00-2-2H9a2 2 0 00-2 2v2m10 0H7" /></svg>
-                            Akan dikirim ke <span class="font-semibold text-slate-800">Kabag Umum</span>
+                            Akan dikirim ke <span class="font-semibold text-slate-800">{{ $tujuanStaffLabel }}</span>
                         </div>
                     @else
                         <div>
@@ -353,7 +385,7 @@
                         <textarea name="instruksi" rows="3" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"></textarea>
                     </div>
 
-                    @if (auth()->user()->isKabag())
+                    @if (auth()->user()->isKasubag() || auth()->user()->isKabag())
                         <div x-show="penerimaRole === 'staff_umum'" x-cloak class="flex flex-col gap-3 sm:flex-row">
                             <button type="submit" name="keputusan_surat" value="" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -366,7 +398,7 @@
                         </div>
                     @endif
 
-                    <button type="submit" @if (auth()->user()->isKabag()) x-show="penerimaRole !== 'staff_umum'" @endif class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800">
+                    <button type="submit" @if (auth()->user()->isKasubag() || auth()->user()->isKabag()) x-show="penerimaRole !== 'staff_umum'" @endif class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                         {{ $isKirimRevisi ? 'Kirim Revisi' : 'Kirim Disposisi' }}
                     </button>

@@ -12,13 +12,58 @@ use Carbon\Carbon;
 class DisposisiRuleService
 {
     /**
-     * Matriks alur disposisi yang diizinkan (role pengirim => role penerima)
+     * Matriks alur disposisi yang diizinkan (role pengirim => role penerima).
+     * Alur surat masuk: Staff -> Kasubag -> Kabag -> Direktur; Direktur memutuskan
+     * dan mengarahkan disposisi ke jabatan (label, bukan akun).
      */
     private const ALUR_SAH = [
-        'staff_umum' => ['kabag_umum'],
-        'kabag_umum' => ['staff_umum', 'direktur'],
-        'direktur'   => ['kabag_umum'],
+        'staff_umum' => ['kasubag_umum'],
+        'kasubag_umum' => ['staff_umum', 'kabag_umum'],
+        'kabag_umum' => ['staff_umum', 'kasubag_umum', 'direktur'],
+        'direktur' => [],
     ];
+
+    /**
+     * Daftar tetap jabatan tujuan disposisi keputusan Direktur (ditampilkan sebagai
+     * dropdown; disimpan sebagai label, tidak memerlukan akun pengguna). Jabatan
+     * "Kepala Unit" dan "Kasubag" bersifat umum/universal sehingga wajib ditambah
+     * keterangan "bagian" (lihat JABATAN_PERLU_BAGIAN).
+     */
+    public const TUJUAN_JABATAN = [
+        'Kabag Keuangan',
+        'Kabag Umum & Administrasi',
+        'Kabag Teknik',
+        'Kepala SPI',
+        'Staf Ahli',
+        'Kepala Unit',
+        'Kasubag',
+    ];
+
+    /**
+     * Jabatan yang wajib didampingi keterangan "bagian".
+     */
+    public const JABATAN_PERLU_BAGIAN = [
+        'Kepala Unit',
+        'Kasubag',
+    ];
+
+    /**
+     * Nilai sentinel pilihan "Lainnya" pada dropdown jabatan tujuan keputusan
+     * Direktur. Saat dipilih, Direktur mengetik jabatan manual di
+     * `tujuan_jabatan_lain`.
+     */
+    public const JABATAN_LAINNYA = '__lainnya__';
+
+    /**
+     * Cek apakah sebuah jabatan tujuan wajib diisi keterangan "bagian".
+     * Perbandingan tidak peka huruf besar dan mengabaikan spasi di tepinya.
+     */
+    public static function jabatanPerluBagian(string $jabatan): bool
+    {
+        $normal = mb_strtolower(trim($jabatan));
+
+        return in_array($normal, array_map('mb_strtolower', self::JABATAN_PERLU_BAGIAN), true);
+    }
 
     /**
      * Cek apakah pengirim boleh mengirim disposisi ke penerima.
@@ -33,6 +78,26 @@ class DisposisiRuleService
         }
 
         return in_array($roleTerima, self::ALUR_SAH[$roleKirim] ?? [], true);
+    }
+
+    /**
+     * Role penerus berikutnya pada alur surat masuk.
+     */
+    public function roleBerikutnya(string $role): ?string
+    {
+        return match ($role) {
+            'kasubag_umum' => 'kabag_umum',
+            'kabag_umum' => 'direktur',
+            default => null,
+        };
+    }
+
+    /**
+     * Ambil akun (user) pertama dari sebuah role.
+     */
+    public function akunDenganRole(string $namaRole): ?User
+    {
+        return User::whereHas('role', fn ($q) => $q->where('nama_role', $namaRole))->first();
     }
 
     /**
@@ -54,15 +119,16 @@ class DisposisiRuleService
     }
 
     /**
-     * Cek hak akses penetapan keputusan surat (Direktur: Terima/Tolak, Kabag: Perlu Revisi).
+     * Cek hak akses penetapan keputusan surat
+     * (Direktur: Terima/Tolak, Kasubag & Kabag: Perlu Revisi).
      */
-    public function bolehSetKeputusan(User $user, User $penerima, string $keputusan): bool
+    public function bolehSetKeputusan(User $user, string $keputusan): bool
     {
         if ($user->isDirektur()) {
             return in_array($keputusan, ['diterima', 'ditolak'], true);
         }
 
-        if ($user->isKabag()) {
+        if ($user->isKabag() || $user->isKasubag()) {
             return $keputusan === 'perlu_revisi';
         }
 

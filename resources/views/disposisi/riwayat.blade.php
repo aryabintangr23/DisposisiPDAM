@@ -3,7 +3,7 @@
      * Partial Riwayat Disposisi.
      *
      * Menampilkan ALUR PENUH perjalanan surat (bukan hanya bagian milik user yang login)
-     * untuk Staff Umum, Kabag Umum, dan Direktur. Dipakai juga oleh endpoint polling
+     * untuk Staff Umum, Kasubag Umum, Kabag Umum, dan Direktur. Dipakai juga oleh endpoint polling
      * (method riwayat pada DisposisiController) agar tampilannya ikut ter-update real time.
      */
     $userAktif = auth()->user();
@@ -23,6 +23,7 @@
 
     $namaRole = fn (?string $role) => match ($role) {
         'staff_umum' => 'Staff Umum',
+        'kasubag_umum' => 'Kasubag Umum',
         'kabag_umum' => 'Kabag Umum',
         'direktur' => 'Direktur',
         'admin' => 'Admin',
@@ -32,6 +33,7 @@
     // ------- Posisi surat saat ini -------
     $rolePosisi = $suratFinal ? null : $dispoTerakhir?->penerima?->role?->nama_role;
     $pemegangSekarang = $suratFinal ? null : $dispoTerakhir?->penerima;
+    $pemegangJabatan = $suratFinal ? null : ($dispoTerakhir?->penerima_id === null ? $dispoTerakhir?->keTujuanLabel() : null);
 
     // Kelas warna ditulis utuh (bukan hasil interpolasi) agar tetap terbaca Tailwind.
     $posisiTema = match (true) {
@@ -46,6 +48,7 @@
     // ------- Tahapan alur (stepper) -------
     $tahapan = [
         ['key' => 'staff_umum', 'label' => 'Staff Umum', 'sub' => 'Input & arsip surat'],
+        ['key' => 'kasubag_umum', 'label' => 'Kasubag Umum', 'sub' => 'Verifikasi pertama'],
         ['key' => 'kabag_umum', 'label' => 'Kabag Umum', 'sub' => 'Verifikasi & teruskan'],
         ['key' => 'direktur', 'label' => 'Direktur', 'sub' => 'Keputusan akhir'],
     ];
@@ -130,6 +133,8 @@
                             @elseif ($pemegangSekarang)
                                 Di meja {{ $pemegangSekarang->nama }}
                                 <span class="font-normal text-slate-500">({{ $namaRole($rolePosisi) }})</span>
+                            @elseif ($pemegangJabatan)
+                                Didisposisikan ke <span class="font-semibold">{{ $pemegangJabatan }}</span>
                             @else
                                 Belum ditentukan
                             @endif
@@ -218,6 +223,10 @@
                         @php
                             $terlambatItem = $d->isOverdue();
                             $langkahKe = $semuaDisposisi->search(fn ($x) => $x->id === $d->id) + 1;
+                            $tujuanNama = $d->penerima?->nama ?? ($d->tujuan_jabatan ?? '-');
+                            $tujuanLabel = $d->penerima
+                                ? $namaRole($d->penerima?->role?->nama_role)
+                                : trim(($d->tujuan_jabatan ?? '').($d->tujuan_bagian ? ' ('.$d->tujuan_bagian.')' : ''));
                             $titikWarna = match (true) {
                                 $terlambatItem => 'bg-rose-500 ring-rose-100',
                                 $d->status->value === 'selesai' => 'bg-emerald-500 ring-emerald-100',
@@ -255,8 +264,8 @@
                                     <span class="font-semibold text-slate-800">{{ $d->pengirim?->nama }}</span>
                                     <span class="text-xs text-slate-400">{{ $namaRole($d->pengirim?->role?->nama_role) }}</span>
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                                    <span class="font-semibold text-slate-800">{{ $d->penerima?->nama }}</span>
-                                    <span class="text-xs text-slate-400">{{ $namaRole($d->penerima?->role?->nama_role) }}</span>
+                                    <span class="font-semibold text-slate-800">{{ $tujuanNama }}</span>
+                                    <span class="text-xs text-slate-400">{{ $tujuanLabel }}</span>
                                 </div>
 
                                 <p class="mt-1 text-xs text-slate-400">

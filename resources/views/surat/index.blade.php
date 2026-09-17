@@ -146,7 +146,6 @@
                                         $dispoTerakhirItem = $item->disposisi->last();
                                         $itemSedangDitindaklanjuti = $item->status->value === 'baru'
                                             && $dispoTerakhirItem
-                                            && $dispoTerakhirItem->pengirim?->isKabag()
                                             && $dispoTerakhirItem->penerima?->isDirektur();
                                     @endphp
                                     <tr class="transition hover:bg-slate-50">

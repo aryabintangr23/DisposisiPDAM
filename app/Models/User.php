@@ -74,6 +74,11 @@ class User extends Authenticatable
         return $this->role?->nama_role === 'staff_umum';
     }
 
+    public function isKasubag(): bool
+    {
+        return $this->role?->nama_role === 'kasubag_umum';
+    }
+
     public function isKabag(): bool
     {
         return $this->role?->nama_role === 'kabag_umum';
@@ -91,11 +96,11 @@ class User extends Authenticatable
 
     /**
      * Role yang boleh memantau alur disposisi surat secara penuh
-     * (Staff Umum, Kabag Umum, dan Direktur; Admin ikut sebagai pengawas sistem).
+     * (Staff Umum, Kasubag Umum, Kabag Umum, dan Direktur; Admin ikut sebagai pengawas sistem).
      */
     public function bisaLihatAlurDisposisi(): bool
     {
-        return $this->isStaff() || $this->isKabag() || $this->isDirektur() || $this->isAdmin();
+        return $this->isStaff() || $this->isKasubag() || $this->isKabag() || $this->isDirektur() || $this->isAdmin();
     }
 
     /**

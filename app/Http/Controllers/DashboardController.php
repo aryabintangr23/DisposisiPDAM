@@ -22,9 +22,9 @@ class DashboardController extends Controller
         // Scope query surat berdasarkan hak akses role user
         $scope = fn () => Surat::untukRole($user);
 
-        // Ambil maksimal 10 disposisi yang mendekati batas waktu (khusus Kabag & Direktur)
+        // Ambil maksimal 10 disposisi yang mendekati batas waktu (khusus Kasubag, Kabag & Direktur)
         $disposisiMendekati = collect();
-        if ($user->isKabag() || $user->isDirektur()) {
+        if ($user->isKasubag() || $user->isKabag() || $user->isDirektur()) {
             $disposisiMendekati = Disposisi::query()
                 ->whereIn('surat_id', $scope()->select('id'))
                 ->mendekatiBatas()

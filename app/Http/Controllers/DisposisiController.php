@@ -36,10 +36,24 @@ class DisposisiController extends Controller
         $data = $request->validated();
         $pengirim = $request->user();
 
-        // Staff selalu mengirim ke Kabag, ditentukan otomatis di server (bukan dari pilihan form)
+        // Staff selalu dikirim otomatis di sisi server (bukan dari pilihan form):
+        // - saat surat berstatus "perlu_revisi" dan disposisi terakhir sedang di tangan
+        //   Staff, kembalikan revisi ke pihak yang memintanya (Kasubag/Kabag);
+        // - selain itu kirim ke Kasubag Umum sebagai awal alur surat masuk.
         if ($pengirim->isStaff()) {
-            $penerima = User::whereHas('role', fn ($q) => $q->where('nama_role', 'kabag_umum'))->first();
-            abort_unless($penerima, 422, 'Tidak ada akun Kabag Umum yang terdaftar untuk menerima disposisi ini.');
+            $penerima = null;
+
+            if ($surat->status->value === 'perlu_revisi') {
+                $dispoDiTangan = $surat->disposisiTerakhir();
+
+                if ($dispoDiTangan && $dispoDiTangan->penerima_id === $pengirim->id) {
+                    $penerima = $dispoDiTangan->pengirim;
+                }
+            }
+
+            $penerima ??= $rule->akunDenganRole('kasubag_umum');
+
+            abort_unless($penerima, 422, 'Tidak ada akun Kasubag Umum yang terdaftar untuk menerima disposisi ini.');
         } else {
             $penerima = User::findOrFail($data['penerima_id']);
         }
@@ -54,11 +68,7 @@ class DisposisiController extends Controller
 
         if ($keputusan) {
             abort_unless(
-                $rule->bolehSetKeputusan(
-                    $pengirim,
-                    $penerima,
-                    $keputusan
-                ),
+                $rule->bolehSetKeputusan($pengirim, $keputusan),
                 403,
                 'Keputusan surat tidak sesuai alur yang diizinkan.'
             );
@@ -137,8 +147,10 @@ class DisposisiController extends Controller
     }
 
     /**
-     * Fitur keputusan (Terima/Tolak) khusus Direktur.
-     * Otomatis mengembalikan disposisi ke Kabag dan mengubah status surat.
+     * Fitur keputusan (Terima/Tolak) khusus Direktur untuk surat masuk.
+     * Direktur memilih jabatan tujuan disposisi (disimpan sebagai label),
+     * lalu status surat diubah menjadi Diterima/Ditolak (final) dan seluruh
+     * pihak yang terlibat dalam alur diberi tahu melalui pesan internal.
      */
     public function keputusan(
         Request $request,
@@ -158,35 +170,62 @@ class DisposisiController extends Controller
                 'required',
                 Rule::in(['diterima', 'ditolak']),
             ],
+            'tujuan_jabatan' => [
+                'required',
+                Rule::in([...DisposisiRuleService::TUJUAN_JABATAN, DisposisiRuleService::JABATAN_LAINNYA]),
+            ],
+            'tujuan_jabatan_lain' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'tujuan_bagian' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
             'catatan' => [
                 'nullable',
                 'string',
             ],
         ]);
 
+        $jabatanTujuan = $data['tujuan_jabatan'];
+
+        if ($jabatanTujuan === DisposisiRuleService::JABATAN_LAINNYA) {
+            abort_unless(
+                ! empty($data['tujuan_jabatan_lain']),
+                422,
+                'Nama jabatan wajib diisi saat memilih "Lainnya".'
+            );
+
+            $jabatanTujuan = $data['tujuan_jabatan_lain'];
+        }
+
+        if (DisposisiRuleService::jabatanPerluBagian($jabatanTujuan)) {
+            abort_unless(
+                ! empty($data['tujuan_bagian']),
+                422,
+                'Bagian wajib diisi untuk jabatan tujuan ini.'
+            );
+        }
+
         $dispoTerakhir = $surat->disposisiTerakhir();
 
         abort_unless(
-            $dispoTerakhir &&
-            $dispoTerakhir->penerima_id === $user->id,
+            $dispoTerakhir && $dispoTerakhir->penerima_id === $user->id,
             403,
             'Surat ini belum didisposisikan kepada Anda.'
         );
 
-        $kabag = $dispoTerakhir->pengirim;
-
         abort_unless(
-            $rule->bolehDisposisi($user, $kabag),
+            $surat->status->value === 'baru',
             403,
-            'Tujuan pengembalian disposisi tidak sesuai alur yang diizinkan.'
+            'Surat hanya bisa diputuskan ketika statusnya masih Baru.'
         );
 
         abort_unless(
-            $rule->bolehSetKeputusan(
-                $user,
-                $kabag,
-                $data['keputusan']
-            ),
+            $rule->bolehSetKeputusan($user, $data['keputusan']),
             403,
             'Keputusan surat tidak sesuai alur yang diizinkan.'
         );
@@ -194,9 +233,11 @@ class DisposisiController extends Controller
         $prioritas = Prioritas::Biasa;
         $tanggalDisposisi = now();
 
-        $surat->disposisi()->create([
+        $disposisi = $surat->disposisi()->create([
             'pengirim_id' => $user->id,
-            'penerima_id' => $kabag->id,
+            'penerima_id' => null,
+            'tujuan_jabatan' => $jabatanTujuan,
+            'tujuan_bagian' => $data['tujuan_bagian'] ?? null,
             'tanggal_disposisi' => $tanggalDisposisi,
             'prioritas' => $prioritas,
             'batas_waktu' => $rule->hitungBatasWaktu(
@@ -212,26 +253,30 @@ class DisposisiController extends Controller
         ]);
 
         $label = $data['keputusan'] === 'diterima' ? 'Diterima' : 'Ditolak';
+        $tujuan = $disposisi->keTujuanLabel();
 
-        // Kirim pesan notifikasi ke Kabag (penerima disposisi balasan) dan
-        // juga ke Staff pembuat surat, agar keduanya tahu hasil keputusan Direktur.
-        $staff = $surat->pembuat;
+        // Beri tahu seluruh pihak yang pernah terlibat dalam alur (Staff pembuat,
+        // Kasubag, Kabag) tentang hasil keputusan Direktur dan arah disposisinya.
+        $surat->loadMissing(['disposisi.pengirim.role', 'disposisi.penerima.role', 'pembuat']);
+
+        $terlibat = collect([$surat->pembuat])
+            ->concat($surat->disposisi->pluck('pengirim'))
+            ->concat($surat->disposisi->pluck('penerima'))
+            ->filter()
+            ->unique('id')
+            ->reject(fn (User $u) => $u->isAdmin())
+            ->reject(fn (User $u) => $u->id === $user->id)
+            ->values();
+
         $subjek = "Surat {$label} Direktur: ".$surat->nomor_surat;
         $isiDasar = "Surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) telah ditandai \"{$label}\" oleh {$user->nama} (Direktur)"
-            .(! empty($data['catatan']) ? " dengan catatan: \"{$data['catatan']}\"." : '.');
+            .(! empty($data['catatan']) ? " dengan catatan: \"{$data['catatan']}\"." : '.')
+            ." Disposisi hasil keputusan ditujukan ke {$tujuan}.";
 
-        Message::create([
-            'sender_id' => $user->id,
-            'receiver_id' => $kabag->id,
-            'surat_id' => $surat->id,
-            'subject' => $subjek,
-            'body' => $isiDasar.' Disposisi balasan sudah dikirim kembali kepada Anda.',
-        ]);
-
-        if ($staff && $staff->id !== $kabag->id) {
+        foreach ($terlibat as $penerima) {
             Message::create([
                 'sender_id' => $user->id,
-                'receiver_id' => $staff->id,
+                'receiver_id' => $penerima->id,
                 'surat_id' => $surat->id,
                 'subject' => $subjek,
                 'body' => $isiDasar,
@@ -240,7 +285,7 @@ class DisposisiController extends Controller
 
         LogAktivitas::catat(
             'surat_keputusan_'.$data['keputusan'],
-            "{$user->nama} (Direktur) menandai surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) \"{$label}\" dan mengirimnya kembali ke {$kabag->nama}.",
+            "{$user->nama} (Direktur) menandai surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) \"{$label}\" dan mendisposisikannya ke {$tujuan}.",
             'surat',
             $surat->id
         );
@@ -249,13 +294,15 @@ class DisposisiController extends Controller
             ->route('surat.show', $surat)
             ->with(
                 'status',
-                "Surat ditandai \"{$label}\" dan dikirim kembali ke {$kabag->nama}."
+                "Surat ditandai \"{$label}\" dan didisposisikan ke {$tujuan}."
             );
     }
 
     /**
-     * Review surat baru oleh Kabag (Approve/Revisi).
-     * Jika Approve, surat otomatis diteruskan ke Direktur & kirim notifikasi pesan ke Staff.
+     * Review surat baru oleh Kasubag/Kabag (Approve/Revisi).
+     * Jika Approve, surat otomatis diteruskan ke tahap berikutnya pada alur
+     * (Kasubag -> Kabag, Kabag -> Direktur); jika Revisi, dikembalikan langsung
+     * ke Staff pembuat surat.
      */
     public function reviewBaru(
         Request $request,
@@ -265,9 +312,9 @@ class DisposisiController extends Controller
         $user = $request->user();
 
         abort_unless(
-            $user->isKabag(),
+            $user->isKasubag() || $user->isKabag(),
             403,
-            'Hanya Kabag yang boleh menandai surat Approve/Revisi.'
+            'Hanya Kasubag/Kabag yang boleh menandai surat Approve/Revisi.'
         );
 
         $data = $request->validate([
@@ -286,37 +333,39 @@ class DisposisiController extends Controller
         abort_unless(
             $dispoTerakhir
                 && $dispoTerakhir->penerima_id === $user->id
-                && $dispoTerakhir->pengirim?->isStaff()
+                && in_array($dispoTerakhir->pengirim?->role?->nama_role, ['staff_umum', 'kasubag_umum'], true)
                 && $surat->status->value === 'baru',
             403,
-            'Surat ini tidak sedang menunggu review Anda sebagai Kabag.'
+            'Surat ini tidak sedang menunggu review Anda.'
         );
 
         $staff = $dispoTerakhir->pengirim;
+        $pembuat = $surat->pembuat;
+        $labelRole = ucwords(str_replace('_', ' ', (string) $user->role?->nama_role));
         $prioritas = $dispoTerakhir->prioritas;
         $tanggalDisposisi = now();
 
         if ($data['keputusan'] === 'approve') {
-            $direktur = User::whereHas(
-                'role',
-                fn ($q) => $q->where('nama_role', 'direktur')
-            )->first();
+            $roleTujuan = $rule->roleBerikutnya((string) $user->role?->nama_role);
+            abort_unless($roleTujuan, 422, 'Tidak ada tahap berikutnya pada alur untuk diteruskan.');
+
+            $tujuan = $rule->akunDenganRole($roleTujuan);
 
             abort_unless(
-                $direktur,
+                $tujuan,
                 422,
-                'Tidak ada akun Direktur yang terdaftar untuk meneruskan surat ini.'
+                'Tidak ada akun '.ucwords(str_replace('_', ' ', $roleTujuan)).' yang terdaftar untuk meneruskan surat ini.'
             );
 
             abort_unless(
-                $rule->bolehDisposisi($user, $direktur),
+                $rule->bolehDisposisi($user, $tujuan),
                 403,
                 'Tujuan penerusan disposisi tidak sesuai alur yang diizinkan.'
             );
 
             $surat->disposisi()->create([
                 'pengirim_id' => $user->id,
-                'penerima_id' => $direktur->id,
+                'penerima_id' => $tujuan->id,
                 'tanggal_disposisi' => $tanggalDisposisi,
                 'prioritas' => $prioritas,
                 'batas_waktu' => $rule->hitungBatasWaktu($tanggalDisposisi, $prioritas),
@@ -324,27 +373,29 @@ class DisposisiController extends Controller
                 'status' => StatusDisposisi::Terkirim,
             ]);
 
-            // Kirim pesan notifikasi ke Staff bahwa suratnya telah diapprove dan diteruskan
+            // Kirim pesan notifikasi ke Staff pembuat bahwa suratnya telah diapprove dan diteruskan
             Message::create([
                 'sender_id' => $user->id,
                 'receiver_id' => $staff->id,
                 'surat_id' => $surat->id,
                 'subject' => 'Surat Disetujui: '.$surat->nomor_surat,
                 'body' => "Surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) yang Anda kirim telah "
-                    ."disetujui oleh {$user->nama} (Kabag) dan otomatis diteruskan ke {$direktur->nama} (Direktur).",
+                    ."disetujui oleh {$user->nama} ({$labelRole}) dan otomatis diteruskan ke {$tujuan->nama}.",
             ]);
 
-            $pesanStatus = "Surat disetujui dan otomatis diteruskan ke {$direktur->nama} (Direktur).";
+            $pesanStatus = "Surat disetujui dan otomatis diteruskan ke {$tujuan->nama}.";
         } else {
+            $tujuan = $pembuat ?? $staff;
+
             abort_unless(
-                $rule->bolehDisposisi($user, $staff),
+                $rule->bolehDisposisi($user, $tujuan),
                 403,
                 'Tujuan pengembalian disposisi tidak sesuai alur yang diizinkan.'
             );
 
             $surat->disposisi()->create([
                 'pengirim_id' => $user->id,
-                'penerima_id' => $staff->id,
+                'penerima_id' => $tujuan->id,
                 'tanggal_disposisi' => $tanggalDisposisi,
                 'prioritas' => $prioritas,
                 'batas_waktu' => $rule->hitungBatasWaktu($tanggalDisposisi, $prioritas),
@@ -356,22 +407,22 @@ class DisposisiController extends Controller
                 'status' => StatusSurat::PerluRevisi,
             ]);
 
-            // Kirim pesan notifikasi ke Staff bahwa suratnya perlu direvisi
+            // Kirim pesan notifikasi ke Staff pembuat bahwa suratnya perlu direvisi
             Message::create([
                 'sender_id' => $user->id,
-                'receiver_id' => $staff->id,
+                'receiver_id' => $tujuan->id,
                 'surat_id' => $surat->id,
                 'subject' => 'Perlu Revisi: '.$surat->nomor_surat,
-                'body' => "Surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) yang Anda kirim perlu direvisi oleh {$user->nama} (Kabag)"
+                'body' => "Surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) yang Anda kirim perlu direvisi oleh {$user->nama} ({$labelRole})"
                     .(! empty($data['catatan']) ? " dengan catatan: \"{$data['catatan']}\"." : '.'),
             ]);
 
-            $pesanStatus = "Surat dikirim kembali ke {$staff->nama} untuk direvisi.";
+            $pesanStatus = "Surat dikirim kembali ke {$tujuan->nama} untuk direvisi.";
         }
 
         LogAktivitas::catat(
             'review_baru_'.$data['keputusan'],
-            "{$user->nama} (Kabag) me-review surat baru \"{$surat->perihal}\" (No. {$surat->nomor_surat}) dari {$staff->nama}: {$pesanStatus}",
+            "{$user->nama} ({$labelRole}) me-review surat baru \"{$surat->perihal}\" (No. {$surat->nomor_surat}) dari {$staff->nama}: {$pesanStatus}",
             'surat',
             $surat->id
         );
@@ -382,7 +433,9 @@ class DisposisiController extends Controller
     }
 
     /**
-     * Review surat revisi dari Staff oleh Kabag (Diterima/Revisi lagi).
+     * Review surat revisi dari Staff oleh Kasubag/Kabag (Diterima/Revisi lagi).
+     * Jika Diterima, status kembali ke Baru dan surat diteruskan ke tahap berikutnya
+     * pada alur; jika Revisi, dikembalikan lagi ke Staff pembuat.
      */
     public function reviewRevisi(
         Request $request,
@@ -392,9 +445,9 @@ class DisposisiController extends Controller
         $user = $request->user();
 
         abort_unless(
-            $user->isKabag(),
+            $user->isKasubag() || $user->isKabag(),
             403,
-            'Hanya Kabag yang boleh menandai revisi Diterima/Revisi.'
+            'Hanya Kasubag/Kabag yang boleh menandai revisi Diterima/Revisi.'
         );
 
         $data = $request->validate([
@@ -413,36 +466,39 @@ class DisposisiController extends Controller
         abort_unless(
             $dispoTerakhir
                 && $dispoTerakhir->penerima_id === $user->id
+                && $dispoTerakhir->pengirim?->isStaff()
                 && $surat->status->value === 'perlu_revisi',
             403,
             'Surat ini tidak sedang menunggu review revisi dari Anda.'
         );
 
         $staff = $dispoTerakhir->pengirim;
+        $pembuat = $surat->pembuat;
+        $labelRole = ucwords(str_replace('_', ' ', (string) $user->role?->nama_role));
         $prioritas = Prioritas::Biasa;
         $tanggalDisposisi = now();
 
         if ($data['keputusan'] === 'diterima') {
-            $direktur = User::whereHas(
-                'role',
-                fn ($q) => $q->where('nama_role', 'direktur')
-            )->first();
+            $roleTujuan = $rule->roleBerikutnya((string) $user->role?->nama_role);
+            abort_unless($roleTujuan, 422, 'Tidak ada tahap berikutnya pada alur untuk diteruskan.');
+
+            $tujuan = $rule->akunDenganRole($roleTujuan);
 
             abort_unless(
-                $direktur,
+                $tujuan,
                 422,
-                'Tidak ada akun Direktur yang terdaftar untuk meneruskan surat ini.'
+                'Tidak ada akun '.ucwords(str_replace('_', ' ', $roleTujuan)).' yang terdaftar untuk meneruskan surat ini.'
             );
 
             abort_unless(
-                $rule->bolehDisposisi($user, $direktur),
+                $rule->bolehDisposisi($user, $tujuan),
                 403,
                 'Tujuan penerusan disposisi tidak sesuai alur yang diizinkan.'
             );
 
             $surat->disposisi()->create([
                 'pengirim_id' => $user->id,
-                'penerima_id' => $direktur->id,
+                'penerima_id' => $tujuan->id,
                 'tanggal_disposisi' => $tanggalDisposisi,
                 'prioritas' => $prioritas,
                 'batas_waktu' => $rule->hitungBatasWaktu($tanggalDisposisi, $prioritas),
@@ -450,31 +506,33 @@ class DisposisiController extends Controller
                 'status' => StatusDisposisi::Terkirim,
             ]);
 
-            // Kirim notifikasi ke Staff bahwa revisi telah diterima
+            // Kirim notifikasi ke Staff pembuat bahwa revisi telah diterima
             Message::create([
                 'sender_id' => $user->id,
                 'receiver_id' => $staff->id,
                 'surat_id' => $surat->id,
                 'subject' => 'Revisi Diterima: '.$surat->nomor_surat,
                 'body' => "Revisi surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) yang Anda kirim telah "
-                    ."diterima oleh {$user->nama} (Kabag) dan otomatis diteruskan ke {$direktur->nama} (Direktur).",
+                    ."diterima oleh {$user->nama} ({$labelRole}) dan otomatis diteruskan ke {$tujuan->nama}.",
             ]);
 
             $surat->update([
                 'status' => StatusSurat::Baru,
             ]);
 
-            $pesanStatus = "Revisi dari {$staff->nama} ditandai \"Diterima\" dan surat otomatis diteruskan ke {$direktur->nama} (Direktur).";
+            $pesanStatus = "Revisi dari {$staff->nama} ditandai \"Diterima\" dan surat otomatis diteruskan ke {$tujuan->nama}.";
         } else {
+            $tujuan = $pembuat ?? $staff;
+
             abort_unless(
-                $rule->bolehDisposisi($user, $staff),
+                $rule->bolehDisposisi($user, $tujuan),
                 403,
                 'Tujuan pengembalian disposisi tidak sesuai alur yang diizinkan.'
             );
 
             $surat->disposisi()->create([
                 'pengirim_id' => $user->id,
-                'penerima_id' => $staff->id,
+                'penerima_id' => $tujuan->id,
                 'tanggal_disposisi' => $tanggalDisposisi,
                 'prioritas' => $prioritas,
                 'batas_waktu' => $rule->hitungBatasWaktu($tanggalDisposisi, $prioritas),
@@ -486,13 +544,13 @@ class DisposisiController extends Controller
                 'status' => StatusSurat::PerluRevisi,
             ]);
 
-            // Kirim pesan notifikasi ke Staff bahwa revisinya masih perlu diperbaiki lagi
+            // Kirim pesan notifikasi ke Staff pembuat bahwa revisinya masih perlu diperbaiki lagi
             Message::create([
                 'sender_id' => $user->id,
-                'receiver_id' => $staff->id,
+                'receiver_id' => $tujuan->id,
                 'surat_id' => $surat->id,
                 'subject' => 'Perlu Revisi Lagi: '.$surat->nomor_surat,
-                'body' => "Revisi surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) yang Anda kirim masih perlu diperbaiki lagi oleh {$user->nama} (Kabag)"
+                'body' => "Revisi surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) yang Anda kirim masih perlu diperbaiki lagi oleh {$user->nama} ({$labelRole})"
                     .(! empty($data['catatan']) ? " dengan catatan: \"{$data['catatan']}\"." : '.'),
             ]);
 
@@ -501,7 +559,7 @@ class DisposisiController extends Controller
 
         LogAktivitas::catat(
             'review_revisi_'.$data['keputusan'],
-            "{$user->nama} (Kabag) me-review revisi surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) dari {$staff->nama}: {$pesanStatus}",
+            "{$user->nama} ({$labelRole}) me-review revisi surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) dari {$staff->nama}: {$pesanStatus}",
             'surat',
             $surat->id
         );

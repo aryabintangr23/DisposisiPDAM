@@ -63,9 +63,13 @@
             <td width="50%" style="vertical-align: top;">
                 <strong>Disposisi Untuk:</strong>
                 <ul class="pilihan">
-                    <li><span class="kotak {{ $disposisi->penerima->role->nama_role === 'staff_umum' ? 'centang' : '' }}"></span>Staff Umum</li>
-                    <li><span class="kotak {{ $disposisi->penerima->role->nama_role === 'kabag_umum' ? 'centang' : '' }}"></span>Kabag Umum &amp; Administrasi</li>
-                    <li><span class="kotak {{ $disposisi->penerima->role->nama_role === 'direktur' ? 'centang' : '' }}"></span>Direktur</li>
+                    <li><span class="kotak {{ ($disposisi->penerima?->role->nama_role ?? '') === 'staff_umum' ? 'centang' : '' }}"></span>Staff Umum</li>
+                    <li><span class="kotak {{ ($disposisi->penerima?->role->nama_role ?? '') === 'kasubag_umum' ? 'centang' : '' }}"></span>Kasubag Umum</li>
+                    <li><span class="kotak {{ ($disposisi->penerima?->role->nama_role ?? '') === 'kabag_umum' ? 'centang' : '' }}"></span>Kabag Umum &amp; Administrasi</li>
+                    <li><span class="kotak {{ ($disposisi->penerima?->role->nama_role ?? '') === 'direktur' ? 'centang' : '' }}"></span>Direktur</li>
+                    @if ($disposisi->penerima_id === null && $disposisi->tujuan_jabatan)
+                        <li><span class="kotak centang"></span>{{ $disposisi->tujuan_jabatan }}{{ $disposisi->tujuan_bagian ? ' ('.$disposisi->tujuan_bagian.')' : '' }}</li>
+                    @endif
                 </ul>
             </td>
             <td width="50%" style="vertical-align: top;">
@@ -87,8 +91,8 @@
 
     <table width="100%" style="margin-top: 16px;">
         <tr>
-            <td width="50%">Dari&nbsp;&nbsp;: {{ $disposisi->pengirim->nama }} ({{ ucwords(str_replace('_', ' ', $disposisi->pengirim->role->nama_role)) }})</td>
-            <td width="50%">Kepada : {{ $disposisi->penerima->nama }} ({{ ucwords(str_replace('_', ' ', $disposisi->penerima->role->nama_role)) }})</td>
+            <td width="50%">Dari&nbsp;&nbsp;: {{ $disposisi->pengirim?->nama ?? '-' }} ({{ ucwords(str_replace('_', ' ', (string) $disposisi->pengirim?->role?->nama_role)) }})</td>
+            <td width="50%">Kepada : {{ $disposisi->penerima?->nama ?? $disposisi->keTujuanLabel() }}{{ $disposisi->penerima ? ' ('.ucwords(str_replace('_', ' ', (string) $disposisi->penerima?->role->nama_role)).')' : '' }}</td>
         </tr>
         <tr>
             <td>Tanggal&nbsp;&nbsp;: {{ $disposisi->tanggal_disposisi?->format('d-m-Y') }}</td>
