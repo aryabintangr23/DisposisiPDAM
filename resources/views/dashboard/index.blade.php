@@ -73,7 +73,7 @@
         </div>
     @endif
 
-    {{-- Kartu Ringkasan & Grafik (Staff, Admin, Kabag) --}}
+    {{-- Kartu Ringkasan & Grafik (Staff, Kasubag, Admin, Kabag) --}}
     @if ($lihatStatistik)
         <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <a href="{{ route('surat.index') }}" class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow">

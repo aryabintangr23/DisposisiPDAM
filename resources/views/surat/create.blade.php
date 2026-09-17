@@ -9,7 +9,7 @@
             Kembali ke Daftar Surat
         </a>
         <h2 class="mt-2 text-2xl font-bold text-slate-800">Input Surat Baru</h2>
-        <p class="mt-1 text-sm text-slate-500">Lengkapi data surat. Untuk surat masuk, lembar disposisi pertama otomatis dikirim ke Kabag Umum.</p>
+        <p class="mt-1 text-sm text-slate-500">Lengkapi data surat. Untuk surat masuk, lembar disposisi pertama otomatis dikirim ke Kasubag Umum.</p>
     </div>
 
     <form method="POST" action="{{ route('surat.store') }}" enctype="multipart/form-data" class="space-y-6" x-data="{ arahSurat: '{{ old('arah_surat', 'masuk') }}' }">
@@ -91,17 +91,17 @@
         <!-- Section: Disposisi Pertama (hanya untuk surat masuk) -->
         <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm" x-show="arahSurat === 'masuk'" x-cloak>
             <h3 class="mb-1 text-sm font-semibold uppercase tracking-wide text-brand-700">Lembar Disposisi Pertama</h3>
-            <p class="mb-5 text-sm text-slate-500">Dikirim ke Kabag Umum untuk ditindaklanjuti.</p>
+            <p class="mb-5 text-sm text-slate-500">Dikirim ke Kasubag Umum untuk ditindaklanjuti.</p>
 
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Kirim ke</label>
                     <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-600">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2h2m10 0V6a2 2 0 00-2-2H9a2 2 0 00-2 2v2m10 0H7" /></svg>
-                        @if ($kabag)
-                            Kabag Umum ({{ $kabag->nama }})
+                        @if ($kasubag)
+                            Kasubag Umum ({{ $kasubag->nama }})
                         @else
-                            <span class="text-rose-600">Belum ada akun Kabag Umum terdaftar</span>
+                            <span class="text-rose-600">Belum ada akun Kasubag Umum terdaftar</span>
                         @endif
                     </div>
                 </div>

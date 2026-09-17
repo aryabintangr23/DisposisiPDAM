@@ -17,6 +17,8 @@ class Disposisi extends Model
         'surat_id',
         'pengirim_id',
         'penerima_id',
+        'tujuan_jabatan',
+        'tujuan_bagian',
         'tanggal_disposisi',
         'prioritas',
         'batas_waktu',
@@ -35,10 +37,16 @@ class Disposisi extends Model
 
     /**
      * Otomatis buat pesan notifikasi ke penerima saat disposisi baru dibuat.
+     * Disposisi yang ditujukan ke jabatan (penerima_id null) dilewati — tidak ada
+     * akun penerima, notifikasinya dibuat manual oleh alur yang bersangkutan.
      */
     protected static function booted(): void
     {
         static::created(function (Disposisi $disposisi) {
+            if ($disposisi->penerima_id === null) {
+                return;
+            }
+
             $disposisi->loadMissing(['surat', 'pengirim']);
 
             $surat = $disposisi->surat;
@@ -78,6 +86,23 @@ class Disposisi extends Model
     public function penerima(): BelongsTo
     {
         return $this->belongsTo(User::class, 'penerima_id');
+    }
+
+    /**
+     * Label tujuan disposisi: nama akun penerima bila ada, atau jabatan tujuan
+     * (plus bagian bila diisi) untuk disposisi yang tidak memiliki akun penerima.
+     */
+    public function keTujuanLabel(): string
+    {
+        if ($this->penerima_id !== null) {
+            return $this->penerima?->nama ?? '-';
+        }
+
+        $jabatan = $this->tujuan_jabatan ?? '-';
+
+        return $this->tujuan_bagian
+            ? "{$jabatan} ({$this->tujuan_bagian})"
+            : $jabatan;
     }
 
     /**

@@ -16,8 +16,8 @@ class StoreDisposisiRequest extends FormRequest
 
     public function rules(): array
     {
-        // Staff selalu mengirim ke Kabag secara otomatis (ditentukan di controller),
-        // jadi field ini tidak wajib diisi dari form untuk Staff.
+        // Staff selalu dikirim ke Kasubag Umum (atau reviewer) secara otomatis
+        // (ditentukan di controller), jadi field ini tidak wajib diisi dari form untuk Staff.
         $penerimaWajib = ! $this->user()?->isStaff();
 
         return [

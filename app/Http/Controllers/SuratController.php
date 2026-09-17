@@ -120,9 +120,9 @@ class SuratController extends Controller
     {
         $this->authorizeStaffOnly($request);
 
-        $kabag = User::whereHas('role', fn ($q) => $q->where('nama_role', 'kabag_umum'))->first();
+        $kasubag = User::whereHas('role', fn ($q) => $q->where('nama_role', 'kasubag_umum'))->first();
 
-        return view('surat.create', compact('kabag'));
+        return view('surat.create', compact('kasubag'));
     }
 
     /**
@@ -168,11 +168,11 @@ class SuratController extends Controller
             }
         }
 
-        // Lembar disposisi pertama hanya dibuat untuk surat masuk (Staff -> Kabag, tujuan
-        // selalu Kabag, tidak perlu dipilih manual). Surat keluar cukup disimpan sebagai arsip.
+        // Lembar disposisi pertama hanya dibuat untuk surat masuk (Staff -> Kasubag Umum,
+        // tujuan selalu Kasubag, tidak perlu dipilih manual). Surat keluar cukup disimpan sebagai arsip.
         if ($data['arah_surat'] === 'masuk') {
-            $penerima = User::whereHas('role', fn ($q) => $q->where('nama_role', 'kabag_umum'))->first();
-            abort_unless($penerima, 422, 'Tidak ada akun Kabag Umum yang terdaftar untuk menerima disposisi ini.');
+            $penerima = User::whereHas('role', fn ($q) => $q->where('nama_role', 'kasubag_umum'))->first();
+            abort_unless($penerima, 422, 'Tidak ada akun Kasubag Umum yang terdaftar untuk menerima disposisi ini.');
             abort_unless($rule->bolehDisposisi($request->user(), $penerima), 403, 'Tujuan disposisi tidak sesuai alur yang diizinkan.');
 
             $prioritas = Prioritas::from($data['prioritas']);
@@ -302,7 +302,22 @@ class SuratController extends Controller
 
         $penerimaOptions = $this->penerimaOptionsUntuk($request->user(), $surat);
 
-        return view('surat.show', compact('surat', 'penerimaOptions'));
+        $tujuanJabatan = DisposisiRuleService::TUJUAN_JABATAN;
+
+        // Nilai sentinel opsi "Lainnya" pada dropdown jabatan tujuan keputusan.
+        $jabatanLainnya = DisposisiRuleService::JABATAN_LAINNYA;
+
+        // Tujuan otomatis disposisi Staff (Kasubag Umum, atau reviewer pada alur revisi),
+        // ditampilkan pada form kirim disposisi di halaman detail.
+        $staffTujuan = null;
+        if ($request->user()->isStaff() && $surat->arah_surat->value === 'masuk') {
+            $staffTujuan = $this->tujuanStaff($request->user(), $surat);
+        }
+
+        return view(
+            'surat.show',
+            compact('surat', 'penerimaOptions', 'tujuanJabatan', 'staffTujuan', 'jabatanLainnya')
+        );
     }
 
     /**
@@ -487,13 +502,33 @@ class SuratController extends Controller
         }
 
         $roleTujuan = match (true) {
-            $user->isStaff() => ['kabag_umum'],
-            $user->isKabag() => ['staff_umum', 'direktur'],
+            $user->isStaff() => ['kasubag_umum'],
+            $user->isKasubag() => ['staff_umum', 'kabag_umum'],
+            $user->isKabag() => ['staff_umum', 'kasubag_umum', 'direktur'],
             $user->isDirektur() || $user->isAdmin() => [],
             default => [],
         };
 
         return User::whereHas('role', fn ($q) => $q->whereIn('nama_role', $roleTujuan))->get();
+    }
+
+    /**
+     * Tujuan otomatis disposisi yang dikirim Staff:
+     * - saat surat perlu revisi dan disposisi terakhir masih di tangan Staff, kirim balik
+     *   ke reviewer kasubag/kabag yang meminta revisi (pengirim disposisi terakhir);
+     * - selain itu ke Kasubag Umum sebagai awal alur surat masuk.
+     */
+    private function tujuanStaff(User $user, Surat $surat): ?User
+    {
+        if ($surat->status->value === 'perlu_revisi') {
+            $dispoTerakhir = $surat->disposisiTerakhir();
+
+            if ($dispoTerakhir && $dispoTerakhir->penerima_id === $user->id) {
+                return $dispoTerakhir->pengirim;
+            }
+        }
+
+        return User::whereHas('role', fn ($q) => $q->where('nama_role', 'kasubag_umum'))->first();
     }
 
     private function authorizeStaffOnly(Request $request): void
