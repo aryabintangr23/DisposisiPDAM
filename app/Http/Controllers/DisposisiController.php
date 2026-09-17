@@ -13,6 +13,7 @@ use App\Models\Surat;
 use App\Models\User;
 use App\Services\DisposisiRuleService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -511,6 +512,47 @@ class DisposisiController extends Controller
     }
 
     /**
+     * Endpoint AJAX untuk memantau riwayat/alur disposisi secara real time.
+     * Mengembalikan HTML kartu riwayat beserta tanda tangan datanya, sehingga
+     * halaman detail surat bisa menukar isinya hanya ketika ada perubahan.
+     */
+    public function riwayat(Request $request, Surat $surat): JsonResponse
+    {
+        $this->authorizeLihatRiwayat($request, $surat);
+
+        $surat->load(['disposisi.pengirim.role', 'disposisi.penerima.role']);
+
+        $html = view('disposisi.riwayat', compact('surat'))->render();
+
+        return response()->json([
+            'html' => $html,
+            'signature' => md5(implode('|', [
+                $surat->status->value,
+                $surat->disposisi->count(),
+                (string) $surat->disposisi->max('updated_at'),
+            ])),
+        ]);
+    }
+
+    /**
+     * Hak akses melihat riwayat disposisi sebuah surat.
+     * Mengikuti aturan akses detail surat (berbasis role, bukan per akun).
+     */
+    private function authorizeLihatRiwayat(Request $request, Surat $surat): void
+    {
+        $user = $request->user();
+
+        $terlibat = $user->isAdmin()
+            || $user->sameRoleAs($surat->pembuat)
+            || $surat->disposisi()
+                ->whereHas('pengirim', fn ($q) => $q->where('role_id', $user->role_id))
+                ->orWhereHas('penerima', fn ($q) => $q->where('role_id', $user->role_id))
+                ->exists();
+
+        abort_unless($terlibat, 403, 'Anda tidak memiliki akses ke riwayat disposisi surat ini.');
+    }
+
+    /**
      * Export lembar disposisi ke PDF untuk dicetak/diarsip.
      */
     public function cetak(
@@ -523,21 +565,9 @@ class DisposisiController extends Controller
             404
         );
 
-        $user = $request->user();
-
-        // Cek apakah user berhak mencetak (Admin, Pembuat Surat, atau Pihak Terlibat)
-        $terlibat = $user->isAdmin()
-            || $surat->created_by === $user->id
-            || $surat->disposisi()
-                ->where('pengirim_id', $user->id)
-                ->orWhere('penerima_id', $user->id)
-                ->exists();
-
-        abort_unless(
-            $terlibat,
-            403,
-            'Anda tidak memiliki akses untuk mencetak lembar disposisi ini.'
-        );
+        // Hak cetak mengikuti hak akses riwayat surat (berbasis role), agar Staff Umum,
+        // Kabag Umum, dan Direktur bisa mencetak lembar langkah mana pun pada alurnya.
+        $this->authorizeLihatRiwayat($request, $surat);
 
         $disposisi->load([
             'pengirim.role',

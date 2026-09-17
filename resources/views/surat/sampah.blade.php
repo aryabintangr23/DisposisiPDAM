@@ -60,6 +60,7 @@
                                        @change="selected = $event.target.checked ? [...allIds] : []">
                             </th>
                             <th class="px-5 py-3 text-left font-semibold text-slate-600">Nomor Surat</th>
+                            <th class="px-5 py-3 text-left font-semibold text-slate-600">Jenis Surat</th>
                             <th class="px-5 py-3 text-left font-semibold text-slate-600">Perihal</th>
                             <th class="px-5 py-3 text-left font-semibold text-slate-600">Dihapus pada</th>
                         </tr>
@@ -72,6 +73,9 @@
                                            class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
                                 </td>
                                 <td class="whitespace-nowrap px-5 py-3.5 font-medium text-slate-800">{{ $item->nomor_surat }}</td>
+                                <td class="whitespace-nowrap px-5 py-3.5">
+                                    <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{{ $item->jenis_surat ?: '-' }}</span>
+                                </td>
                                 <td class="max-w-md px-5 py-3.5 text-slate-600">
                                     <span class="line-clamp-2">{{ $item->perihal }}</span>
                                 </td>
@@ -79,7 +83,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="px-5 py-12 text-center text-slate-400">
+                                <td colspan="5" class="px-5 py-12 text-center text-slate-400">
                                     <p class="text-sm">Tempat sampah kosong.</p>
                                 </td>
                             </tr>

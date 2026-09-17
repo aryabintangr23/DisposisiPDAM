@@ -41,6 +41,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/surat/{surat}/review-baru', [DisposisiController::class, 'reviewBaru'])->name('disposisi.reviewBaru');
     Route::post('/surat/{surat}/disposisi/{disposisi}/selesai', [DisposisiController::class, 'selesaikan'])->name('disposisi.selesaikan');
     Route::get('/surat/{surat}/disposisi/{disposisi}/cetak', [DisposisiController::class, 'cetak'])->name('disposisi.cetak');
+    Route::get('/surat/{surat}/riwayat-disposisi', [DisposisiController::class, 'riwayat'])->name('disposisi.riwayat');
 
     Route::prefix('pesan')->name('pesan.')->group(function () {
         Route::get('/', [MessageController::class, 'index'])->name('index');

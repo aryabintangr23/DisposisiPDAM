@@ -90,6 +90,15 @@ class User extends Authenticatable
     }
 
     /**
+     * Role yang boleh memantau alur disposisi surat secara penuh
+     * (Staff Umum, Kabag Umum, dan Direktur; Admin ikut sebagai pengawas sistem).
+     */
+    public function bisaLihatAlurDisposisi(): bool
+    {
+        return $this->isStaff() || $this->isKabag() || $this->isDirektur() || $this->isAdmin();
+    }
+
+    /**
      * Cek apakah user memiliki role yang sama dengan user lain.
      */
     public function sameRoleAs(?User $lain): bool

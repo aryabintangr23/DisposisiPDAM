@@ -27,13 +27,6 @@
                   {{ ! $role ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
             Semua
         </a>
-        @foreach ($roles as $r)
-            <a href="{{ route('pengguna.index', ['role' => $r->nama_role]) }}"
-               class="inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold transition
-                      {{ $role === $r->nama_role ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
-                {{ ucwords(str_replace('_', ' ', $r->nama_role)) }}
-            </a>
-        @endforeach
     </div>
 
     <form method="GET" action="{{ route('pengguna.index') }}" class="mb-5 flex items-center gap-2">

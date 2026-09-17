@@ -237,214 +237,11 @@
         </div>
 
         @if ($surat->arah_surat->value === 'masuk')
-            <!-- Riwayat Disposisi (khusus surat masuk; surat keluar tidak melalui alur disposisi) -->
-            @php
-                $riwayatDisposisi = auth()->user()->isAdmin()
-                    ? $surat->disposisi
-                    : $surat->disposisi->filter(
-                        fn ($d) => $d->pengirim_id === auth()->id() || $d->penerima_id === auth()->id()
-                    );
-            @endphp
-
-            <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-brand-700">Riwayat Disposisi</h3>
-
-                @php
-                    $prioritasColor = fn ($p) => match ($p) {
-                        'sangat_segera' => 'bg-rose-50 text-rose-700',
-                        'segera' => 'bg-orange-50 text-orange-700',
-                        'biasa' => 'bg-sky-50 text-sky-700',
-                        default => 'bg-slate-100 text-slate-600',
-                    };
-                    $dispoStatusColor = fn ($s) => match ($s) {
-                        'selesai' => 'bg-emerald-50 text-emerald-700',
-                        'ditindaklanjuti' => 'bg-sky-50 text-sky-700',
-                        'dibaca' => 'bg-indigo-50 text-indigo-700',
-                        'diterima' => 'bg-amber-50 text-amber-700',
-                        default => 'bg-slate-100 text-slate-600',
-                    };
-
-                    $prioritasDotColor = fn ($p) => match ($p) {
-                        'sangat_segera' => 'bg-red-500 ring-red-100',
-                        'segera' => 'bg-yellow-400 ring-yellow-100',
-                        'biasa' => 'bg-green-500 ring-green-100',
-                        'tunggu_petunjuk' => 'bg-blue-500 ring-blue-100',
-                        default => 'bg-slate-300 ring-slate-100',
-                    };
-                @endphp
-
-                @if ($riwayatDisposisi->isNotEmpty())
-                    <div class="-mx-1 overflow-x-auto pb-2 md:overflow-visible">
-                        <ol class="flex min-w-max items-start px-1 md:min-w-0 md:flex-wrap md:gap-y-6">
-                            @foreach ($riwayatDisposisi as $d)
-                                <li class="flex w-64 shrink-0 flex-col items-stretch sm:w-72 md:w-full lg:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.667rem)]">
-                                    <div class="flex items-center">
-                                        <div class="h-0.5 flex-1 {{ $loop->first ? 'bg-transparent' : 'bg-slate-200' }}"></div>
-                                        <span class="relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-white ring-2 {{ $prioritasDotColor($d->prioritas->value) }}" title="Prioritas: {{ $d->prioritas->label() }}">
-                                            @if ($d->status->value !== 'selesai')
-                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full {{ $prioritasDotColor($d->prioritas->value) }} opacity-60"></span>
-                                            @endif
-                                        </span>
-                                        <div class="h-0.5 flex-1 {{ $loop->last ? 'bg-transparent' : 'bg-slate-200' }}"></div>
-                                    </div>
-
-                                    <div class="mt-3 flex-1 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                                        <div class="flex flex-wrap items-center gap-1.5">
-                                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ $prioritasColor($d->prioritas->value) }}">
-                                                {{ $d->prioritas->label() }}
-                                            </span>
-                                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ $dispoStatusColor($d->status->value) }}">
-                                                {{ $d->status->label() }}
-                                            </span>
-                                        </div>
-
-                                        <p class="mt-1.5 text-sm text-slate-700">
-                                            <span class="font-medium">{{ $d->pengirim->nama }}</span>
-                                            <span class="text-slate-400">({{ ucwords(str_replace('_',' ',$d->pengirim->role->nama_role)) }})</span>
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="mx-1 inline h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                                            <span class="font-medium">{{ $d->penerima->nama }}</span>
-                                            <span class="text-slate-400">({{ ucwords(str_replace('_',' ',$d->penerima->role->nama_role)) }})</span>
-                                        </p>
-
-                                        <p class="mt-1 text-xs text-slate-400">
-                                            {{ $d->tanggal_disposisi?->format('d-m-Y') }}
-                                            @if ($d->batas_waktu) &middot; Batas waktu {{ $d->batas_waktu->format('d-m-Y') }} @endif
-                                        </p>
-
-                                        @if ($d->instruksi)
-                                            <p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{{ $d->instruksi }}</p>
-                                        @endif
-
-                                        <div class="mt-2 flex flex-wrap items-center gap-3">
-                                            <a href="{{ route('disposisi.cetak', [$surat, $d]) }}" target="_blank" data-turbo="false" class="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:underline">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2m-8 4h8v-6H8v6z" /></svg>
-                                                Cetak PDF
-                                            </a>
-
-                                            @if (auth()->user()->isStaff() && $d->penerima_id === auth()->id() && $d->status->value !== 'selesai')
-                                                <form method="POST" action="{{ route('disposisi.selesaikan', [$surat, $d]) }}">
-                                                    @csrf
-                                                    <button type="submit" class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                        Tandai Selesai
-                                                    </button>
-                                                </form>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </li>
-                            @endforeach
-                        </ol>
-                    </div>
-                @else
-                    <p class="text-sm text-slate-400">Belum ada riwayat disposisi untuk Anda pada surat ini.</p>
-                @endif
-            </div>
-        @endif
-
-        @if ($surat->arah_surat->value === 'masuk')
-            <!-- Riwayat Disposisi (hanya untuk surat masuk; surat keluar tidak melalui alur disposisi) -->
-            @php
-                $riwayatDisposisi = auth()->user()->isAdmin()
-                    ? $surat->disposisi
-                    : $surat->disposisi->filter(
-                        fn ($d) => $d->pengirim_id === auth()->id() || $d->penerima_id === auth()->id()
-                    );
-            @endphp
-
-            <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-brand-700">Riwayat Disposisi</h3>
-
-                @php
-                    $prioritasColor = fn ($p) => match ($p) {
-                        'sangat_segera' => 'bg-rose-50 text-rose-700',
-                        'segera' => 'bg-orange-50 text-orange-700',
-                        'biasa' => 'bg-sky-50 text-sky-700',
-                        default => 'bg-slate-100 text-slate-600',
-                    };
-                    $dispoStatusColor = fn ($s) => match ($s) {
-                        'selesai' => 'bg-emerald-50 text-emerald-700',
-                        'ditindaklanjuti' => 'bg-sky-50 text-sky-700',
-                        'dibaca' => 'bg-indigo-50 text-indigo-700',
-                        'diterima' => 'bg-amber-50 text-amber-700',
-                        default => 'bg-slate-100 text-slate-600',
-                    };
-
-                    $prioritasDotColor = fn ($p) => match ($p) {
-                        'sangat_segera' => 'bg-red-500 ring-red-100',
-                        'segera' => 'bg-yellow-400 ring-yellow-100',
-                        'biasa' => 'bg-green-500 ring-green-100',
-                        'tunggu_petunjuk' => 'bg-blue-500 ring-blue-100',
-                        default => 'bg-slate-300 ring-slate-100',
-                    };
-                @endphp
-
-                @if ($riwayatDisposisi->isNotEmpty())
-                    <div class="-mx-1 overflow-x-auto pb-2 md:overflow-visible">
-                        <ol class="flex min-w-max items-start px-1 md:min-w-0 md:flex-wrap md:gap-y-6">
-                            @foreach ($riwayatDisposisi as $d)
-                                <li class="flex w-64 shrink-0 flex-col items-stretch sm:w-72 md:w-full lg:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.667rem)]">
-                                    <div class="flex items-center">
-                                        <div class="h-0.5 flex-1 {{ $loop->first ? 'bg-transparent' : 'bg-slate-200' }}"></div>
-                                        <span class="relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-white ring-2 {{ $prioritasDotColor($d->prioritas->value) }}" title="Prioritas: {{ $d->prioritas->label() }}">
-                                            @if ($d->status->value !== 'selesai')
-                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full {{ $prioritasDotColor($d->prioritas->value) }} opacity-60"></span>
-                                            @endif
-                                        </span>
-                                        <div class="h-0.5 flex-1 {{ $loop->last ? 'bg-transparent' : 'bg-slate-200' }}"></div>
-                                    </div>
-
-                                    <div class="mt-3 flex-1 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                                        <div class="flex flex-wrap items-center gap-1.5">
-                                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ $prioritasColor($d->prioritas->value) }}">
-                                                {{ $d->prioritas->label() }}
-                                            </span>
-                                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ $dispoStatusColor($d->status->value) }}">
-                                                {{ $d->status->label() }}
-                                            </span>
-                                        </div>
-
-                                        <p class="mt-1.5 text-sm text-slate-700">
-                                            <span class="font-medium">{{ $d->pengirim->nama }}</span>
-                                            <span class="text-slate-400">({{ ucwords(str_replace('_',' ',$d->pengirim->role->nama_role)) }})</span>
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="mx-1 inline h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                                            <span class="font-medium">{{ $d->penerima->nama }}</span>
-                                            <span class="text-slate-400">({{ ucwords(str_replace('_',' ',$d->penerima->role->nama_role)) }})</span>
-                                        </p>
-
-                                        <p class="mt-1 text-xs text-slate-400">
-                                            {{ $d->tanggal_disposisi?->format('d-m-Y') }}
-                                            @if ($d->batas_waktu) &middot; Batas waktu {{ $d->batas_waktu->format('d-m-Y') }} @endif
-                                        </p>
-
-                                        @if ($d->instruksi)
-                                            <p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{{ $d->instruksi }}</p>
-                                        @endif
-
-                                        <div class="mt-2 flex flex-wrap items-center gap-3">
-                                            <a href="{{ route('disposisi.cetak', [$surat, $d]) }}" target="_blank" data-turbo="false" class="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:underline">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2m-8 4h8v-6H8v6z" /></svg>
-                                                Cetak PDF
-                                            </a>
-
-                                            @if (auth()->user()->isStaff() && $d->penerima_id === auth()->id() && $d->status->value !== 'selesai')
-                                                <form method="POST" action="{{ route('disposisi.selesaikan', [$surat, $d]) }}">
-                                                    @csrf
-                                                    <button type="submit" class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                        Tandai Selesai
-                                                    </button>
-                                                </form>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </li>
-                            @endforeach
-                        </ol>
-                    </div>
-                @else
-                    <p class="text-sm text-slate-400">Belum ada riwayat disposisi untuk Anda pada surat ini.</p>
-                @endif
+            {{-- Riwayat disposisi: hanya relevan untuk surat masuk, karena surat keluar
+                 tidak melewati alur disposisi. Isi kartunya dirender lewat partial agar
+                 bisa dipakai ulang oleh endpoint polling real time. --}}
+            <div id="riwayat-disposisi" data-riwayat-url="{{ route('disposisi.riwayat', $surat) }}">
+                @include('disposisi.riwayat', ['surat' => $surat])
             </div>
         @endif
 
@@ -579,3 +376,87 @@
         @endif
     </div>
 @endsection
+
+@push('scripts')
+<script>
+    /**
+     * Pemantauan riwayat disposisi secara real time.
+     * Setiap beberapa detik kartu riwayat diminta ulang ke server; kalau tanda tangan
+     * datanya berubah (ada disposisi baru / status berubah), isinya ditukar tanpa reload.
+     */
+    (function () {
+        function waktuRelatifDisposisi(iso) {
+            if (!iso) return '';
+            const detik = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+            if (detik < 60) return 'baru saja';
+            const menit = Math.floor(detik / 60);
+            if (menit < 60) return menit + ' menit yang lalu';
+            const jam = Math.floor(menit / 60);
+            if (jam < 24) return jam + ' jam yang lalu';
+            const hari = Math.floor(jam / 24);
+            if (hari < 30) return hari + ' hari yang lalu';
+            return new Date(iso).toLocaleDateString('id-ID');
+        }
+
+        function perbaruiWaktuRelatif() {
+            document.querySelectorAll('.waktu-relatif-disposisi').forEach(function (el) {
+                if (el.dataset.waktu) el.textContent = waktuRelatifDisposisi(el.dataset.waktu);
+            });
+        }
+
+        function tandaTanganSaatIni(wadah) {
+            const el = wadah.querySelector('[data-riwayat-signature]');
+            return el ? el.dataset.riwayatSignature : null;
+        }
+
+        function jalankanPantauanDisposisi() {
+            const wadah = document.getElementById('riwayat-disposisi');
+
+            if (window.__riwayatDisposisiInterval) clearInterval(window.__riwayatDisposisiInterval);
+            if (window.__riwayatJamInterval) clearInterval(window.__riwayatJamInterval);
+            if (!wadah) return;
+
+            perbaruiWaktuRelatif();
+            window.__riwayatJamInterval = setInterval(perbaruiWaktuRelatif, 30000);
+
+            const tick = function () {
+                if (document.hidden) return;
+
+                fetch(wadah.dataset.riwayatUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
+                    .then(function (data) {
+                        if (data.signature && data.signature !== tandaTanganSaatIni(wadah)) {
+                            wadah.innerHTML = data.html;
+                            perbaruiWaktuRelatif();
+
+                            const kartu = wadah.querySelector('[data-riwayat-signature]');
+                            if (kartu) {
+                                kartu.classList.add('ring-2', 'ring-brand-300');
+                                setTimeout(function () { kartu.classList.remove('ring-2', 'ring-brand-300'); }, 2500);
+                            }
+                        }
+
+                        const indikator = wadah.querySelector('[data-riwayat-indikator]');
+                        if (indikator) {
+                            indikator.textContent = 'Diperbarui ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                        }
+                    })
+                    .catch(function () { /* diabaikan, dicoba lagi pada siklus berikutnya */ });
+            };
+
+            window.__riwayatDisposisiInterval = setInterval(tick, 10000);
+            tick();
+        }
+
+        document.addEventListener('DOMContentLoaded', jalankanPantauanDisposisi);
+        document.addEventListener('turbo:render', jalankanPantauanDisposisi);
+        document.addEventListener('turbo:before-cache', function () {
+            if (window.__riwayatDisposisiInterval) clearInterval(window.__riwayatDisposisiInterval);
+            if (window.__riwayatJamInterval) clearInterval(window.__riwayatJamInterval);
+        });
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden && document.getElementById('riwayat-disposisi')) jalankanPantauanDisposisi();
+        });
+    })();
+</script>
+@endpush
