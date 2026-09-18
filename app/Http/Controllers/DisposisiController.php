@@ -12,6 +12,7 @@ use App\Models\Message;
 use App\Models\Surat;
 use App\Models\User;
 use App\Services\DisposisiRuleService;
+use App\Services\SuratPdfService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -641,5 +642,43 @@ class DisposisiController extends Controller
         $namaFile = "lembar-disposisi-{$disposisi->id}.pdf";
 
         return $pdf->stream($namaFile);
+    }
+
+    /**
+     * Cetak lembar disposisi DIGABUNG dengan seluruh lampiran surat menjadi satu
+     * file PDF utuh (bukan dua file terpisah). Berbeda dari cetak() di atas
+     * yang hanya berisi lembar disposisi, fitur ini SENGAJA dibatasi hanya untuk
+     * Staff Umum dan Kabag Umum.
+     */
+    public function cetakLengkap(
+        Request $request,
+        Surat $surat,
+        Disposisi $disposisi,
+        SuratPdfService $pdfService
+    ): Response {
+        abort_unless(
+            $disposisi->surat_id === $surat->id,
+            404
+        );
+
+        abort_unless(
+            $request->user()->isStaff() || $request->user()->isKabag(),
+            403,
+            'Hanya Staff Umum dan Kabag Umum yang boleh mencetak dokumen gabungan (lembar disposisi + lampiran) ini.'
+        );
+
+        $surat->load('lampiran');
+        $disposisi->load(['pengirim.role', 'penerima.role']);
+
+        $isiPdf = $pdfService->gabungkan($surat, $disposisi);
+
+        // Menggunakan ID disposisi (bukan nomor surat) di nama file agar terhindar
+        // dari error karakter slash pada Windows, mengikuti pola cetak() di atas.
+        $namaFile = "lembar-disposisi-lengkap-{$disposisi->id}.pdf";
+
+        return response($isiPdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "inline; filename=\"{$namaFile}\"",
+        ]);
     }
 }

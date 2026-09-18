@@ -8,6 +8,7 @@ use App\Enums\StatusSurat;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Disposisi extends Model
 {
@@ -86,6 +87,11 @@ class Disposisi extends Model
     public function penerima(): BelongsTo
     {
         return $this->belongsTo(User::class, 'penerima_id');
+    }
+
+    public function tautanPublik(): HasMany
+    {
+        return $this->hasMany(TautanPublikDisposisi::class);
     }
 
     /**

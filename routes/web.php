@@ -7,6 +7,7 @@ use App\Http\Controllers\LogAktivitasController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SuratController;
+use App\Http\Controllers\TautanPublikController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -14,6 +15,12 @@ use Illuminate\Support\Facades\Route;
 Route::get('/login', [LoginController::class, 'create'])->name('login')->middleware('guest');
 Route::post('/login', [LoginController::class, 'store'])->middleware('guest');
 Route::post('/logout', [LoginController::class, 'destroy'])->name('logout')->middleware('auth');
+
+// Tautan publik lembar disposisi + lampiran (TANPA middleware auth — inilah yang
+// membuatnya bisa dibuka siapa pun yang memegang link-nya, tanpa perlu login).
+// Path dibuat sesingkat mungkin ("/d/kode") supaya nyaman dibagikan/diketik ulang.
+// Hak siapa yang boleh MEMBUAT tautan ini tetap dibatasi di dalam controller-nya.
+Route::get('/d/{tautanPublik:token}', [TautanPublikController::class, 'tampilkan'])->name('tautanPublik.publik');
 
 Route::middleware('auth')->group(function () {
     Route::redirect('/', '/dashboard');
@@ -41,7 +48,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/surat/{surat}/review-baru', [DisposisiController::class, 'reviewBaru'])->name('disposisi.reviewBaru');
     Route::post('/surat/{surat}/disposisi/{disposisi}/selesai', [DisposisiController::class, 'selesaikan'])->name('disposisi.selesaikan');
     Route::get('/surat/{surat}/disposisi/{disposisi}/cetak', [DisposisiController::class, 'cetak'])->name('disposisi.cetak');
+    Route::get('/surat/{surat}/disposisi/{disposisi}/cetak-lengkap', [DisposisiController::class, 'cetakLengkap'])->name('disposisi.cetakLengkap');
     Route::get('/surat/{surat}/riwayat-disposisi', [DisposisiController::class, 'riwayat'])->name('disposisi.riwayat');
+
+    Route::post('/surat/{surat}/disposisi/{disposisi}/tautan-publik', [TautanPublikController::class, 'store'])->name('tautanPublik.store');
+    Route::delete('/tautan-publik/{tautanPublik}', [TautanPublikController::class, 'destroy'])->name('tautanPublik.destroy');
 
     Route::prefix('pesan')->name('pesan.')->group(function () {
         Route::get('/', [MessageController::class, 'index'])->name('index');
