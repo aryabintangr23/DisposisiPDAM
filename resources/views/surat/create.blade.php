@@ -228,4 +228,4 @@
             })();
         </script>
     @endpush
-@endsectiongiy
+@endsection
