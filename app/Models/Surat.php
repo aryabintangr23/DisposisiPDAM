@@ -73,6 +73,11 @@ class Surat extends Model
         return $this->hasMany(Disposisi::class)->orderBy('created_at');
     }
 
+    public function tautanPublik(): HasMany
+    {
+        return $this->hasMany(TautanPublikDisposisi::class);
+    }
+
     /**
      * Ambil data disposisi paling baru.
      */

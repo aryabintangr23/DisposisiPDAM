@@ -290,6 +290,27 @@
                                         Cetak PDF
                                     </a>
 
+                                    @if ($userAktif->isStaff() || $userAktif->isKabag())
+                                        {{-- Cetak gabungan (lembar disposisi + seluruh lampiran surat jadi 1 file PDF).
+                                             Sengaja dibatasi hanya untuk Staff Umum & Kabag Umum. --}}
+                                        <a href="{{ route('disposisi.cetakLengkap', [$surat, $d]) }}" target="_blank" data-turbo="false" class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:underline">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                            Cetak Lengkap (+ Lampiran)
+                                        </a>
+                                    @endif
+
+                                    @if ($userAktif->isStaff())
+                                        {{-- Membuat tautan publik hanya untuk Staff Umum; hasil linknya ditampilkan
+                                             lewat flash "tautanPublikUrl" di bagian atas halaman surat/show. --}}
+                                        <form method="POST" action="{{ route('tautanPublik.store', [$surat, $d]) }}">
+                                            @csrf
+                                            <button type="submit" class="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:underline">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342a2.987 2.987 0 000-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                                                Bagikan Tautan Publik
+                                            </button>
+                                        </form>
+                                    @endif
+
                                     @if ($userAktif->isStaff() && $d->penerima_id === $userAktif->id && $d->status->value !== 'selesai')
                                         <form method="POST" action="{{ route('disposisi.selesaikan', [$surat, $d]) }}">
                                             @csrf

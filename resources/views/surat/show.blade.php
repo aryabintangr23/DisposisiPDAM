@@ -104,6 +104,32 @@
         $tujuanTahapBerikutnya = auth()->user()?->isKasubag() ? 'Kabag Umum' : 'Direktur';
     @endphp
 
+    @if (session('tautanPublikUrl'))
+        <div x-data="{ show: true, disalin: false }" x-show="show" x-cloak class="mb-6 rounded-xl border border-brand-200 bg-brand-50 p-5">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold text-brand-800">Tautan publik siap dibagikan</p>
+                    <p class="mt-1 text-xs text-brand-700">
+                        Berisi lembar disposisi &amp; seluruh lampiran surat ini sebagai satu file PDF. Siapa pun yang memegang tautan ini bisa membukanya tanpa perlu login, dan berlaku 30 hari.
+                    </p>
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <input type="text" readonly value="{{ session('tautanPublikUrl') }}" x-ref="tautanInput" onclick="this.select()" class="w-full min-w-0 flex-1 rounded-lg border border-brand-200 bg-white px-3 py-2 text-xs text-slate-700 sm:w-auto">
+                        <button type="button" @click="navigator.clipboard.writeText($refs.tautanInput.value); disalin = true; setTimeout(() => disalin = false, 2000)" class="shrink-0 rounded-lg bg-brand-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-800">
+                            <span x-show="!disalin">Salin Link</span>
+                            <span x-show="disalin" x-cloak>Tersalin!</span>
+                        </button>
+                        <a href="https://wa.me/?text={{ urlencode('Lembar disposisi & lampiran surat: '.session('tautanPublikUrl')) }}" target="_blank" data-turbo="false" class="shrink-0 rounded-lg border border-brand-200 bg-white px-3 py-2 text-xs font-semibold text-brand-700 transition hover:bg-brand-50">
+                            Kirim via WhatsApp
+                        </a>
+                    </div>
+                </div>
+                <button type="button" @click="show = false" class="shrink-0 rounded-lg p-1 text-brand-400 transition hover:bg-white hover:text-brand-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+        </div>
+    @endif
+
     @if ($perluRevisiUntukStaff)
         @php
             $pengajuRevisi = $dispoTerakhir->pengirim;
