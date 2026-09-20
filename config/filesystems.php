@@ -38,10 +38,8 @@ return [
 
         'public' => [
             'driver' => 'local',
-            // Diubah agar file lampiran langsung tersimpan di folder public/storage,
-            // tanpa perlu symlink (storage:link) — karena symlink bermasalah di hosting cPanel.
-            'root' => public_path('storage'),
-            'url' => env('APP_URL').'/storage',
+            'root' => storage_path('app/public'),
+            'url' => env('APP_URL') . '/storage',
             'visibility' => 'public',
             'throw' => false,
         ],
