@@ -29,6 +29,9 @@
                 @if ($prioritas)
                     <input type="hidden" name="prioritas" value="{{ $prioritas }}">
                 @endif
+                @if ($jenis)
+                    <input type="hidden" name="jenis_surat" value="{{ $jenis }}">
+                @endif
                 <input type="hidden" name="bulan" value="{{ $bulan }}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
@@ -36,7 +39,7 @@
                 <input type="search" name="cari" value="{{ $cari }}" required placeholder="Cari nomor, perihal, asal/tujuan surat…" class="w-64 rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm text-slate-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 sm:w-80">
             </form>
 
-            <!-- Filter Prioritas -->
+            <!-- Filter Jenis Surat -->
             <form method="GET" action="{{ route('surat.index') }}">
                 @if ($arah)
                     <input type="hidden" name="arah" value="{{ $arah }}">
@@ -47,11 +50,14 @@
                 @if ($cari)
                     <input type="hidden" name="cari" value="{{ $cari }}">
                 @endif
+                @if ($prioritas)
+                    <input type="hidden" name="prioritas" value="{{ $prioritas }}">
+                @endif
                 <input type="hidden" name="bulan" value="{{ $bulan }}">
-                <select name="prioritas" onchange="this.form.submit()" class="rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
-                    <option value="">Semua Prioritas</option>
-                    @foreach (\App\Enums\Prioritas::cases() as $p)
-                        <option value="{{ $p->value }}" {{ $prioritas === $p->value ? 'selected' : '' }}>{{ $p->label() }}</option>
+                <select name="jenis_surat" onchange="this.form.submit()" class="rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                    <option value="">Semua Jenis</option>
+                    @foreach (\App\Enums\JenisSurat::cases() as $j)
+                        <option value="{{ $j->value }}" {{ $jenis === $j->value ? 'selected' : '' }}>{{ $j->label() }}</option>
                     @endforeach
                 </select>
             </form>
@@ -74,7 +80,7 @@
             @if ($tanggal || $cari)
                 <div class="mb-4 flex flex-wrap gap-2">
                     @if ($tanggal)
-                        <a href="{{ route('surat.index', array_filter(['arah' => $arah, 'prioritas' => $prioritas, 'cari' => $cari])) }}" class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100">
+                        <a href="{{ route('surat.index', array_filter(['arah' => $arah, 'prioritas' => $prioritas, 'cari' => $cari, 'jenis_surat' => $jenis])) }}" class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100">
                             {{ \Carbon\Carbon::parse($tanggal)->translatedFormat('d F Y') }}
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -82,7 +88,7 @@
                         </a>
                     @endif
                     @if ($cari)
-                        <a href="{{ route('surat.index', array_filter(['arah' => $arah, 'prioritas' => $prioritas, 'tanggal' => $tanggal])) }}" class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100">
+                        <a href="{{ route('surat.index', array_filter(['arah' => $arah, 'prioritas' => $prioritas, 'tanggal' => $tanggal, 'jenis_surat' => $jenis])) }}" class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100">
                             Pencarian: "{{ $cari }}"
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -126,6 +132,7 @@
                                     <th class="px-5 py-3 text-left font-semibold text-slate-600">Jenis Surat</th>
                                     <th class="px-5 py-3 text-left font-semibold text-slate-600">Tanggal</th>
                                     <th class="px-5 py-3 text-left font-semibold text-slate-600">Perihal</th>
+                                    <th class="px-5 py-3 text-left font-semibold text-slate-600">Surat Dari</th>
                                     <th class="px-5 py-3 text-left font-semibold text-slate-600">Arah</th>
                                     <th class="px-5 py-3 text-left font-semibold text-slate-600">Status</th>
                                     <th class="px-5 py-3 text-right font-semibold text-slate-600">Aksi</th>
@@ -166,6 +173,9 @@
                                         <td class="whitespace-nowrap px-5 py-3.5 text-slate-600">{{ $item->tanggal_surat?->format('d-m-Y') }}</td>
                                         <td class="max-w-xs px-5 py-3.5 text-slate-600">
                                             <span class="line-clamp-2">{{ $item->perihal }}</span>
+                                        </td>
+                                        <td class="max-w-[10rem] px-5 py-3.5 text-slate-600">
+                                            <span class="line-clamp-2">{{ $item->surat_dari ?: '-' }}</span>
                                         </td>
                                         <td class="whitespace-nowrap px-5 py-3.5">
                                             @if ($item->arah_surat->value === 'masuk')
@@ -209,7 +219,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="{{ $bisaHapusSurat ? 9 : 8 }}" class="px-5 py-12 text-center text-slate-400">
+                                        <td colspan="{{ $bisaHapusSurat ? 10 : 9 }}" class="px-5 py-12 text-center text-slate-400">
                                             <div class="flex flex-col items-center gap-2">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                                 <p class="text-sm">
@@ -245,7 +255,7 @@
                 $mulaiGrid = $bulanAwal->copy()->startOfWeek(\Carbon\Carbon::SUNDAY);
                 $selesaiGrid = $bulanAwal->copy()->endOfMonth()->endOfWeek(\Carbon\Carbon::SATURDAY);
                 $hariIni = now()->format('Y-m-d');
-                $filterAktif = array_filter(['arah' => $arah, 'prioritas' => $prioritas, 'cari' => $cari]);
+                $filterAktif = array_filter(['arah' => $arah, 'prioritas' => $prioritas, 'cari' => $cari, 'jenis_surat' => $jenis]);
             @endphp
 
             <div class="sticky top-20 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

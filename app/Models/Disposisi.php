@@ -95,6 +95,19 @@ class Disposisi extends Model
     }
 
     /**
+     * Ambil tautan publik yang masih aktif (belum kedaluwarsa) untuk disposisi ini,
+     * kalau ada. Dipakai untuk menampilkan tautan otomatis pada riwayat disposisi
+     * tanpa perlu query tambahan selama relasi `tautanPublik` sudah di-eager-load.
+     */
+    public function tautanPublikAktif(): ?TautanPublikDisposisi
+    {
+        return $this->tautanPublik
+            ->filter(fn (TautanPublikDisposisi $t) => ! $t->isKadaluarsa())
+            ->sortByDesc('created_at')
+            ->first();
+    }
+
+    /**
      * Label tujuan disposisi: nama akun penerima bila ada, atau jabatan tujuan
      * (plus bagian bila diisi) untuk disposisi yang tidak memiliki akun penerima.
      */

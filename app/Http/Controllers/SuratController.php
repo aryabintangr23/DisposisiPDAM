@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\ArahSurat;
 use App\Enums\Prioritas;
 use App\Enums\StatusDisposisi;
+use App\Enums\JenisSurat;
 use App\Http\Requests\StoreSuratRequest;
 use App\Http\Requests\UpdateSuratRequest;
 use App\Models\LogAktivitas;
@@ -39,6 +40,12 @@ class SuratController extends Controller
             $prioritas = null;
         }
 
+        // Filter jenis surat
+        $jenis = $request->query('jenis_surat');
+        if (! in_array($jenis, array_column(JenisSurat::cases(), 'value'), true)) {
+            $jenis = null;
+        }
+
         // Pencarian kata kunci (nomor, agenda, perihal, asal, tujuan, jenis)
         $cari = trim((string) $request->query('cari', ''));
         $cari = $cari !== '' ? $cari : null;
@@ -58,6 +65,10 @@ class SuratController extends Controller
 
         if ($prioritas) {
             $query->whereHas('disposisi', fn ($q) => $q->where('prioritas', $prioritas));
+        }
+
+        if ($jenis) {
+            $query->where('jenis_surat', $jenis);
         }
 
         if ($cari) {
@@ -110,7 +121,7 @@ class SuratController extends Controller
                 ];
             })->values());
 
-        return view('surat.index', compact('surat', 'tanggal', 'bulan', 'tanggalBersurat', 'peringatanKalender', 'arah', 'prioritas', 'cari'));
+        return view('surat.index', compact('surat', 'tanggal', 'bulan', 'tanggalBersurat', 'peringatanKalender', 'arah', 'prioritas', 'cari', 'jenis'));
     }
 
     /**

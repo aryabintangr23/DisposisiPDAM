@@ -33,23 +33,17 @@ class TautanPublikController extends Controller
             'Hanya Staff Umum yang boleh membuat tautan publik.'
         );
 
+        abort_unless(
+            $surat->status->value === 'diterima',
+            403,
+            'Tautan publik hanya bisa dibagikan setelah surat disetujui Direktur.'
+        );
+
         // Pakai ulang tautan yang masih berlaku untuk disposisi yang sama, supaya
         // tidak menumpuk tautan baru setiap kali tombol "Bagikan" ditekan berulang.
-        $tautan = TautanPublikDisposisi::where('disposisi_id', $disposisi->id)
-            ->where(function ($q) {
-                $q->whereNull('kadaluarsa_at')->orWhere('kadaluarsa_at', '>', now());
-            })
-            ->first();
+        $tautan = TautanPublikDisposisi::bagikanUntuk($surat, $disposisi, $user->id);
 
-        if (! $tautan) {
-            $tautan = TautanPublikDisposisi::create([
-                'surat_id' => $surat->id,
-                'disposisi_id' => $disposisi->id,
-                'token' => TautanPublikDisposisi::buatTokenUnik(),
-                'dibuat_oleh' => $user->id,
-                'kadaluarsa_at' => now()->addDays(30),
-            ]);
-
+        if ($tautan->wasRecentlyCreated) {
             LogAktivitas::catat(
                 'tautan_publik_dibuat',
                 "{$user->nama} membuat tautan publik untuk surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}).",
