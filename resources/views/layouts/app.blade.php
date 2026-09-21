@@ -39,7 +39,7 @@
     <div class="min-h-screen flex">
 
         <!-- Sidebar Navigation -->
-        <aside class="fixed inset-y-0 left-0 z-40 w-64 transform bg-brand-900 text-brand-50 transition-transform duration-200 ease-in-out lg:static lg:translate-x-0" :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
+        <aside class="fixed inset-y-0 left-0 z-40 w-64 transform overflow-y-auto bg-brand-900 text-brand-50 transition-transform duration-200 ease-in-out lg:translate-x-0" :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
             <div class="flex h-16 items-center gap-3 border-b border-white/10 px-5">
                 <img src="{{ asset('images/LOGO PERUMDA.png') }}" alt="Logo Tirta Gemilang" class="h-10 w-10">
                 <div class="leading-tight">
@@ -173,7 +173,7 @@
         <div x-cloak x-show="sidebarOpen" @click="sidebarOpen = false" class="fixed inset-0 z-30 bg-slate-900/50 lg:hidden"></div>
 
         <!-- Main Content Area -->
-        <div class="flex min-h-screen w-full flex-1 flex-col lg:pl-0">
+        <div class="flex min-h-screen w-full flex-1 flex-col lg:pl-64">
 
             <!-- Topbar Header -->
             <header class="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white/80 px-4 backdrop-blur sm:px-6">

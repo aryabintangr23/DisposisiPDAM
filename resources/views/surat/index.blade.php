@@ -117,7 +117,117 @@
                     </div>
                 @endif
 
-                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                @if ($bisaHapusSurat)
+                    <div class="mb-2 flex items-center gap-2 px-1 md:hidden">
+                        <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" :checked="allIds.length > 0 && selected.length === allIds.length" @change="selected = $event.target.checked ? [...allIds] : []">
+                        <span class="text-xs font-medium text-slate-500">Pilih semua</span>
+                    </div>
+                @endif
+
+                <!-- Tampilan Kartu (khusus layar kecil / ponsel) -->
+                <div class="grid grid-cols-1 gap-3 md:hidden">
+                    @forelse ($surat as $item)
+                        @php
+                            $prioritasTerakhir = $item->disposisi->last()?->prioritas;
+                            $dotColor = match ($prioritasTerakhir?->value) {
+                                'sangat_segera' => 'bg-red-500',
+                                'segera' => 'bg-yellow-400',
+                                'biasa' => 'bg-green-500',
+                                'tunggu_petunjuk' => 'bg-blue-500',
+                                default => 'bg-slate-300',
+                            };
+
+                            $dispoTerakhirItem = $item->disposisi->last();
+                            $itemSedangDitindaklanjuti = $item->status->value === 'baru'
+                                && $dispoTerakhirItem
+                                && $dispoTerakhirItem->penerima?->isDirektur();
+
+                            $statusColor = $itemSedangDitindaklanjuti
+                                ? 'bg-sky-50 text-sky-700'
+                                : match ($item->status->value) {
+                                    'baru' => 'bg-amber-50 text-amber-700',
+                                    'diterima' => 'bg-emerald-50 text-emerald-700',
+                                    'ditolak' => 'bg-rose-50 text-rose-700',
+                                    'perlu_revisi' => 'bg-orange-50 text-orange-700',
+                                    default => 'bg-slate-100 text-slate-600',
+                                };
+
+                            $statusLabelItem = $itemSedangDitindaklanjuti
+                                ? 'Sedang Ditindaklanjuti'
+                                : $item->status->label();
+                        @endphp
+                        <a href="{{ route('surat.show', $item) }}" class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition active:bg-slate-50">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex min-w-0 items-center gap-2">
+                                    @if ($bisaHapusSurat)
+                                        <input type="checkbox" name="ids[]" value="{{ $item->id }}" x-model="selected" @click.stop class="h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                    @endif
+                                    <span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full {{ $dotColor }}" title="Prioritas: {{ $prioritasTerakhir?->label() ?? 'Belum ada disposisi' }}"></span>
+                                    <p class="truncate font-semibold text-slate-800">{{ $item->nomor_surat }}</p>
+                                </div>
+                                <span class="inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-medium {{ $statusColor }}">
+                                    {{ $statusLabelItem }}
+                                </span>
+                            </div>
+
+                            <p class="mt-2 line-clamp-2 text-sm text-slate-600">{{ $item->perihal }}</p>
+
+                            <dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                                <div>
+                                    <dt class="text-slate-400">Jenis Surat</dt>
+                                    <dd class="mt-0.5 truncate text-slate-600">{{ $item->jenis_surat ?: '-' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-slate-400">Tanggal</dt>
+                                    <dd class="mt-0.5 text-slate-600">{{ $item->tanggal_surat?->format('d-m-Y') }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-slate-400">Surat Dari</dt>
+                                    <dd class="mt-0.5 truncate text-slate-600">{{ $item->surat_dari ?: '-' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-slate-400">Arah</dt>
+                                    <dd class="mt-0.5">
+                                        @if ($item->arah_surat->value === 'masuk')
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
+                                                {{ $item->arah_surat->label() }}
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                                            {{ $item->arah_surat->label() }}
+                                            </span>
+                                        @endif
+                                    </dd>
+                                </div>
+                            </dl>
+
+                            <span class="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-700">
+                                Lihat Detail
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                            </span>
+                        </a>
+                    @empty
+                        <div class="rounded-xl border border-slate-200 bg-white px-5 py-12 text-center text-slate-400">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                <p class="text-sm">
+                                    @if ($cari)
+                                        Tidak ada surat yang cocok dengan pencarian "{{ $cari }}".
+                                    @elseif ($tanggal)
+                                        Tidak ada surat pada tanggal ini.
+                                    @else
+                                        Belum ada surat.
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
+                    @endforelse
+                </div>
+
+                <!-- Tampilan Tabel (tablet ke atas) -->
+                <div class="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block">
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-200 text-sm">
                             <thead class="bg-slate-50">

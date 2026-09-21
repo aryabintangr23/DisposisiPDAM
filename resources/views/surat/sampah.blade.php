@@ -48,7 +48,38 @@
             </div>
         </div>
 
-        <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="mb-2 flex items-center gap-2 px-1 md:hidden">
+            <input type="checkbox"
+                   class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                   :checked="allIds.length > 0 && selected.length === allIds.length"
+                   @change="selected = $event.target.checked ? [...allIds] : []">
+            <span class="text-xs font-medium text-slate-500">Pilih semua</span>
+        </div>
+
+        <!-- Tampilan Kartu (khusus layar kecil / ponsel) -->
+        <div class="grid grid-cols-1 gap-3 md:hidden">
+            @forelse ($surat as $item)
+                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex min-w-0 items-center gap-2">
+                            <input type="checkbox" value="{{ $item->id }}" x-model="selected"
+                                   class="h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                            <p class="truncate font-semibold text-slate-800">{{ $item->nomor_surat }}</p>
+                        </div>
+                        <span class="inline-flex shrink-0 items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">{{ $item->jenis_surat ?: '-' }}</span>
+                    </div>
+                    <p class="mt-2 line-clamp-2 text-sm text-slate-600">{{ $item->perihal }}</p>
+                    <p class="mt-2 text-xs text-slate-400">Dihapus pada {{ $item->deleted_at?->format('d-m-Y H:i') }}</p>
+                </div>
+            @empty
+                <div class="rounded-xl border border-slate-200 bg-white px-5 py-12 text-center text-slate-400">
+                    <p class="text-sm">Tempat sampah kosong.</p>
+                </div>
+            @endforelse
+        </div>
+
+        <!-- Tampilan Tabel (tablet ke atas) -->
+        <div class="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-slate-200 text-sm">
                     <thead class="bg-slate-50">
