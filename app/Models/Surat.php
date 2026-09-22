@@ -93,4 +93,20 @@ class Surat extends Model
     {
         return $this->disposisi->contains(fn (Disposisi $d) => $d->isOverdue());
     }
+
+    /**
+     * Hak akses umum ke sebuah surat (dipakai untuk detail surat, riwayat
+     * disposisi, dan lampiran) — berbasis role, bukan per akun: Admin,
+     * pembuat surat (atau siapa pun dengan role yang sama), atau siapa pun
+     * yang pernah menjadi pengirim/penerima pada alur disposisi surat ini.
+     */
+    public function bisaDiaksesOleh(User $user): bool
+    {
+        return $user->isAdmin()
+            || $user->sameRoleAs($this->pembuat)
+            || $this->disposisi()
+                ->whereHas('pengirim', fn ($q) => $q->where('role_id', $user->role_id))
+                ->orWhereHas('penerima', fn ($q) => $q->where('role_id', $user->role_id))
+                ->exists();
+    }
 }

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisposisiController;
+use App\Http\Controllers\LampiranController;
 use App\Http\Controllers\LogAktivitasController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\ProfileController;
@@ -41,6 +42,9 @@ Route::middleware('auth')->group(function () {
     Route::put('/surat/{surat}', [SuratController::class, 'update'])->name('surat.update');
 
     Route::get('/surat/{surat}', [SuratController::class, 'show'])->name('surat.show');
+
+    // Streaming berkas lampiran langsung dari disk (tidak bergantung pada symlink public/storage).
+    Route::get('/lampiran/{lampiran}', [LampiranController::class, 'tampil'])->name('lampiran.tampil');
 
     Route::post('/surat/{surat}/disposisi', [DisposisiController::class, 'store'])->name('disposisi.store');
     Route::post('/surat/{surat}/keputusan', [DisposisiController::class, 'keputusan'])->name('disposisi.keputusan');

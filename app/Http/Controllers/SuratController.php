@@ -12,6 +12,7 @@ use App\Models\LogAktivitas;
 use App\Models\Surat;
 use App\Models\User;
 use App\Services\DisposisiRuleService;
+use App\Services\LampiranImageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -139,7 +140,7 @@ class SuratController extends Controller
     /**
      * Simpan surat baru beserta lampiran dan disposisi awalnya.
      */
-    public function store(StoreSuratRequest $request, DisposisiRuleService $rule): RedirectResponse
+    public function store(StoreSuratRequest $request, DisposisiRuleService $rule, LampiranImageService $lampiranImage): RedirectResponse
     {
         $this->authorizeStaffOnly($request);
 
@@ -169,12 +170,18 @@ class SuratController extends Controller
         if ($request->hasFile('lampiran')) {
             foreach ($request->file('lampiran') as $file) {
                 $path = $file->store('lampiran', 'public');
+                $ekstensi = strtolower((string) $file->getClientOriginalExtension());
+
+                // Perkecil otomatis kalau berupa gambar (JPG/PNG) yang besar/berdimensi
+                // tinggi — umumnya hasil foto kamera HP atau scan — supaya hemat ruang
+                // penyimpanan. Validasi upload tetap mengizinkan sampai 10MB sebagai jaga-jaga.
+                $ukuranAkhir = $lampiranImage->kompresJikaGambar($path, $ekstensi);
 
                 $surat->lampiran()->create([
                     'nama_file' => $file->getClientOriginalName(),
                     'path_file' => $path,
                     'tipe_file' => $file->getClientMimeType(),
-                    'ukuran_file' => $file->getSize(),
+                    'ukuran_file' => $ukuranAkhir,
                 ]);
             }
         }
@@ -237,7 +244,7 @@ class SuratController extends Controller
     /**
      * Update data surat dan simpan lampiran tambahan jika ada.
      */
-    public function update(UpdateSuratRequest $request, Surat $surat): RedirectResponse
+    public function update(UpdateSuratRequest $request, Surat $surat, LampiranImageService $lampiranImage): RedirectResponse
     {
         $this->authorizeEdit($request, $surat);
 
@@ -276,12 +283,18 @@ class SuratController extends Controller
         if ($request->hasFile('lampiran')) {
             foreach ($request->file('lampiran') as $file) {
                 $path = $file->store('lampiran', 'public');
+                $ekstensi = strtolower((string) $file->getClientOriginalExtension());
+
+                // Perkecil otomatis kalau berupa gambar (JPG/PNG) yang besar/berdimensi
+                // tinggi — umumnya hasil foto kamera HP atau scan — supaya hemat ruang
+                // penyimpanan. Validasi upload tetap mengizinkan sampai 10MB sebagai jaga-jaga.
+                $ukuranAkhir = $lampiranImage->kompresJikaGambar($path, $ekstensi);
 
                 $surat->lampiran()->create([
                     'nama_file' => $file->getClientOriginalName(),
                     'path_file' => $path,
                     'tipe_file' => $file->getClientMimeType(),
-                    'ukuran_file' => $file->getSize(),
+                    'ukuran_file' => $ukuranAkhir,
                 ]);
             }
         }
@@ -311,7 +324,19 @@ class SuratController extends Controller
         // Tandai otomatis surat yang sudah melewati batas waktu prioritas sebagai "Ditolak".
         $rule->tandaiOtomatisJikaTerlambat($surat);
 
-        $penerimaOptions = $this->penerimaOptionsUntuk($request->user(), $surat);
+        $dispoTerakhir = $surat->disposisiTerakhir();
+
+        // Surat hanya boleh "dipegang" (dikirim disposisi baru) oleh user yang memang
+        // menjadi penerima disposisi terakhir. Kalau surat sedang di tangan orang lain
+        // (mis. Kabag membuka surat yang sedang direview Kasubag), tidak boleh ada
+        // form kirim disposisi ataupun kotak "menunggu" apa pun — cukup tampilan
+        // baca saja, supaya tidak bisa "menyalip" alur.
+        $isPenerimaSaatIni = $dispoTerakhir && $dispoTerakhir->penerima_id === $request->user()->id;
+        $isPengirimTerakhir = $dispoTerakhir && $dispoTerakhir->pengirim_id === $request->user()->id;
+
+        $penerimaOptions = ($isPenerimaSaatIni || $isPengirimTerakhir)
+            ? $this->penerimaOptionsUntuk($request->user(), $surat)
+            : collect();
 
         $tujuanJabatan = DisposisiRuleService::TUJUAN_JABATAN;
 
@@ -327,7 +352,7 @@ class SuratController extends Controller
 
         return view(
             'surat.show',
-            compact('surat', 'penerimaOptions', 'tujuanJabatan', 'staffTujuan', 'jabatanLainnya')
+            compact('surat', 'penerimaOptions', 'tujuanJabatan', 'staffTujuan', 'jabatanLainnya', 'isPenerimaSaatIni')
         );
     }
 
@@ -552,7 +577,7 @@ class SuratController extends Controller
         $user = $request->user();
 
         abort_unless(
-            $user->isStaff() || $user->isKabag(),
+            $user->isStaff(),
             403,
             'Anda tidak memiliki akses untuk mengelola tempat sampah surat.'
         );
@@ -582,15 +607,6 @@ class SuratController extends Controller
 
     private function authorizeAkses(Request $request, Surat $surat): void
     {
-        $user = $request->user();
-
-        $terlibat = $user->isAdmin()
-            || $user->sameRoleAs($surat->pembuat)
-            || $surat->disposisi()
-                ->whereHas('pengirim', fn ($q) => $q->where('role_id', $user->role_id))
-                ->orWhereHas('penerima', fn ($q) => $q->where('role_id', $user->role_id))
-                ->exists();
-
-        abort_unless($terlibat, 403, 'Anda tidak memiliki akses ke surat ini.');
+        abort_unless($surat->bisaDiaksesOleh($request->user()), 403, 'Anda tidak memiliki akses ke surat ini.');
     }
 }

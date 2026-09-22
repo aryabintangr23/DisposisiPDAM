@@ -32,9 +32,11 @@ class UpdateSuratRequest extends FormRequest
 
             'perihal' => ['required', 'string'],
 
-            // PDF, JPG, dan DOCX, maksimal 10MB per file. Lampiran baru
-            // ditambahkan ke lampiran yang sudah ada (tidak menggantikan).
-            'lampiran.*' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,docx', 'max:10240'],
+            // PDF, JPG/JPEG, PNG, HEIC, dan DOCX, maksimal 10MB per file (cukup untuk
+            // hasil scan/foto kamera HP resolusi tinggi). Lampiran baru ditambahkan ke
+            // lampiran yang sudah ada (tidak menggantikan). Gambar yang besar akan
+            // otomatis dikecilkan setelah diunggah — lihat App\Services\LampiranImageService.
+            'lampiran.*' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,heic,docx', 'max:10240'],
         ];
     }
 }

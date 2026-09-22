@@ -113,7 +113,7 @@
                     <p class="mt-5 mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-300">Tempat Sampah</p>
 
                     @php
-                        $urlSampah = auth()->check() && (auth()->user()->isStaff() || auth()->user()->isKabag()) ? route('surat.sampah') : route('pesan.sampah');
+                        $urlSampah = auth()->check() && auth()->user()->isStaff() ? route('surat.sampah') : route('pesan.sampah');
                     @endphp
                     <a href="{{ $urlSampah }}" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition {{ request()->routeIs('surat.sampah') || request()->routeIs('pesan.sampah') ? 'bg-white/10 text-white' : 'text-brand-100 hover:bg-white/5 hover:text-white' }}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">

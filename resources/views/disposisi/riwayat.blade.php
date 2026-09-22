@@ -58,6 +58,23 @@
         ->filter()
         ->unique();
 
+    // ------- Tahap yang sedang meminta revisi (Kasubag/Kabag) -------
+    // Selama status surat masih "perlu_revisi", cari langkah TERAKHIR yang berupa
+    // permintaan revisi (dikirim oleh Kasubag/Kabag KEMBALI ke Staff/pembuat surat).
+    // Tahap (Kasubag/Kabag) yang memintanya ditandai orange + tanda seru pada
+    // stepper — BUKAN centang hijau — selama surat masih dalam proses revisi,
+    // walaupun Staff sudah mengirim ulang surat yang direvisi tersebut.
+    $rolePemintaRevisi = null;
+
+    if ($statusSurat === 'perlu_revisi') {
+        $dispoPermintaanRevisi = $semuaDisposisi
+            ->reverse()
+            ->first(fn ($d) => in_array($d->pengirim?->role?->nama_role, ['kasubag_umum', 'kabag_umum'], true)
+                && $d->penerima?->role?->nama_role === 'staff_umum');
+
+        $rolePemintaRevisi = $dispoPermintaanRevisi?->pengirim?->role?->nama_role;
+    }
+
     // ------- Palet warna -------
     $prioritasColor = fn ($p) => match ($p) {
         'sangat_segera' => 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200',
@@ -177,9 +194,11 @@
                     @php
                         $aktif = ! $suratFinal && $rolePosisi === $tahap['key'];
                         $pernah = $rolePernahDilalui->contains($tahap['key']);
-                        $tuntas = $pernah && ! $aktif;
+                        $mintaRevisi = $rolePemintaRevisi === $tahap['key'];
+                        $tuntas = $pernah && ! $aktif && ! $mintaRevisi;
 
                         $bulatKelas = match (true) {
+                            $mintaRevisi => 'bg-orange-500 text-white ring-4 ring-orange-100',
                             $aktif => 'bg-brand-600 text-white ring-4 ring-brand-100',
                             $tuntas => 'bg-emerald-500 text-white',
                             default => 'bg-slate-100 text-slate-400',
@@ -190,22 +209,26 @@
                         <div class="flex w-full items-center">
                             <div class="h-0.5 flex-1 {{ $loop->first ? 'bg-transparent' : ($pernah ? 'bg-emerald-300' : 'bg-slate-200') }}"></div>
                             <span class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition {{ $bulatKelas }}">
-                                @if ($tuntas)
+                                @if ($mintaRevisi)
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                                @elseif ($tuntas)
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
                                 @else
                                     {{ $i + 1 }}
                                 @endif
-                                @if ($aktif)
-                                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-50"></span>
+                                @if ($aktif || $mintaRevisi)
+                                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full {{ $mintaRevisi ? 'bg-orange-400' : 'bg-brand-400' }} opacity-50"></span>
                                 @endif
                             </span>
                             <div class="h-0.5 flex-1 {{ $loop->last ? 'bg-transparent' : $garisKelas }}"></div>
                         </div>
-                        <p class="mt-2 text-xs font-semibold {{ $aktif ? 'text-brand-700' : ($tuntas ? 'text-slate-700' : 'text-slate-400') }}">
+                        <p class="mt-2 text-xs font-semibold {{ $mintaRevisi ? 'text-orange-700' : ($aktif ? 'text-brand-700' : ($tuntas ? 'text-slate-700' : 'text-slate-400')) }}">
                             {{ $tahap['label'] }}
                         </p>
                         <p class="mt-0.5 hidden text-[11px] text-slate-400 sm:block">{{ $tahap['sub'] }}</p>
-                        @if ($aktif)
+                        @if ($mintaRevisi)
+                            <span class="mt-1 inline-flex items-center rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700">Sedang proses revisi</span>
+                        @elseif ($aktif)
                             <span class="mt-1 inline-flex items-center rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-700">Sedang di sini</span>
                         @endif
                     </li>

@@ -319,18 +319,18 @@
                             <span class="truncate text-sm font-medium text-slate-700">{{ $file->nama_file }}</span>
                             <span class="shrink-0 text-xs text-slate-400">({{ number_format($file->ukuran_file / 1024, 0) }} KB)</span>
                         </div>
-                        <a href="{{ \Illuminate\Support\Facades\Storage::url($file->path_file) }}" target="_blank" class="shrink-0 text-xs font-semibold text-brand-700 hover:underline">Buka di tab baru</a>
+                        <a href="{{ route('lampiran.tampil', $file) }}" target="_blank" class="shrink-0 text-xs font-semibold text-brand-700 hover:underline">Buka di tab baru</a>
                     </div>
 
                     @if ($isPdf)
-                        <iframe src="{{ \Illuminate\Support\Facades\Storage::url($file->path_file) }}" class="h-[500px] w-full border-0"></iframe>
+                        <iframe src="{{ route('lampiran.tampil', $file) }}" class="h-[500px] w-full border-0"></iframe>
                     @elseif ($isGambar)
-                        <img src="{{ \Illuminate\Support\Facades\Storage::url($file->path_file) }}" alt="{{ $file->nama_file }}" class="max-h-[500px] w-full object-contain bg-slate-100">
+                        <img src="{{ route('lampiran.tampil', $file) }}" alt="{{ $file->nama_file }}" loading="lazy" class="max-h-[500px] w-full object-contain bg-slate-100">
                     @else
                         <div class="flex flex-col items-center gap-2 px-4 py-8 text-center text-slate-400">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                            <p class="text-sm">Berkas Word tidak bisa dipratinjau di sini.</p>
-                            <a href="{{ \Illuminate\Support\Facades\Storage::url($file->path_file) }}" target="_blank" class="text-xs font-semibold text-brand-700 hover:underline">Unduh / buka berkas</a>
+                            <p class="text-sm">Berkas ini tidak bisa dipratinjau langsung di sini.</p>
+                            <a href="{{ route('lampiran.tampil', $file) }}" target="_blank" class="text-xs font-semibold text-brand-700 hover:underline">Unduh / buka berkas</a>
                         </div>
                     @endif
                 </div>
@@ -347,8 +347,10 @@
         @endphp
 
         @if ($surat->arah_surat->value === 'masuk')
-        @if ($bisaReviewBaru)
-            {{-- Disembunyikan karena sudah ada panel Tinjau Surat Masuk di atas --}}
+        @if ($bisaReviewBaru || $bisaReviewRevisi)
+            {{-- Disembunyikan karena sudah ada panel Tinjau Surat Masuk / Review Revisi di atas.
+                 Kasubag/Kabag tidak perlu form kirim disposisi manual: Approve akan otomatis
+                 meneruskan ke tahap berikutnya, dan Revisi akan otomatis mengembalikan ke Staff. --}}
         @elseif ($penerimaOptions->isNotEmpty() && $formTerkunci)
             <div class="rounded-xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
                 <p class="flex items-center gap-2 font-medium text-slate-600">
@@ -369,7 +371,7 @@
                     @endif
                 </p>
             </div>
-        @elseif ($penerimaOptions->isNotEmpty())
+        @elseif ($penerimaOptions->isNotEmpty() && $isPenerimaSaatIni)
             <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-brand-700">
                     {{ $isKirimRevisi ? 'Kirim Revisi' : 'Kirim Disposisi Baru' }}

@@ -99,7 +99,7 @@
             @endif
 
             @php
-                $bisaHapusSurat = auth()->user()->isStaff() || auth()->user()->isKabag();
+                $bisaHapusSurat = auth()->user()->isStaff();
             @endphp
 
             <form method="POST" action="{{ route('surat.hapus') }}" x-data="{ selected: [], allIds: {{ $surat->pluck('id')->map(fn ($id) => (string) $id)->toJson() }} }">

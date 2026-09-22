@@ -31,8 +31,10 @@ class StoreSuratRequest extends FormRequest
 
             'perihal' => ['required', 'string'],
 
-            // PDF, JPG, dan HEIC, maksimal 10MB per file.
-            'lampiran.*' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,heic', 'max:10240'],
+            // PDF, JPG/JPEG, PNG, dan HEIC, maksimal 10MB per file (cukup untuk hasil
+            // scan/foto kamera HP resolusi tinggi). Gambar yang besar akan otomatis
+            // dikecilkan setelah diunggah — lihat App\Services\LampiranImageService.
+            'lampiran.*' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,heic', 'max:10240'],
 
             // Lembar disposisi pertama (Staff -> Kabag) hanya dibuat untuk surat masuk;
             // penerima selalu Kabag, ditentukan otomatis di controller (bukan dari input).

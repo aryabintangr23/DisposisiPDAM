@@ -37,22 +37,14 @@ class DisposisiController extends Controller
         $data = $request->validated();
         $pengirim = $request->user();
 
-        // Staff selalu dikirim otomatis di sisi server (bukan dari pilihan form):
-        // - saat surat berstatus "perlu_revisi" dan disposisi terakhir sedang di tangan
-        //   Staff, kembalikan revisi ke pihak yang memintanya (Kasubag/Kabag);
-        // - selain itu kirim ke Kasubag Umum sebagai awal alur surat masuk.
+        // Staff selalu dikirim otomatis di sisi server ke Kasubag Umum (bukan dari
+        // pilihan form) — baik untuk pengiriman awal alur surat masuk maupun saat
+        // mengirim kembali surat yang sudah direvisi ("perlu_revisi"). Ini berlaku
+        // walaupun revisi tadinya diminta langsung oleh Kabag Umum: surat hasil
+        // revisi WAJIB singgah dulu di Kasubag Umum untuk direview, baru Kasubag
+        // yang mendisposisikannya ke Kabag Umum (lihat DisposisiController::reviewRevisi).
         if ($pengirim->isStaff()) {
-            $penerima = null;
-
-            if ($surat->status->value === 'perlu_revisi') {
-                $dispoDiTangan = $surat->disposisiTerakhir();
-
-                if ($dispoDiTangan && $dispoDiTangan->penerima_id === $pengirim->id) {
-                    $penerima = $dispoDiTangan->pengirim;
-                }
-            }
-
-            $penerima ??= $rule->akunDenganRole('kasubag_umum');
+            $penerima = $rule->akunDenganRole('kasubag_umum');
 
             abort_unless($penerima, 422, 'Tidak ada akun Kasubag Umum yang terdaftar untuk menerima disposisi ini.');
         } else {
@@ -599,16 +591,11 @@ class DisposisiController extends Controller
      */
     private function authorizeLihatRiwayat(Request $request, Surat $surat): void
     {
-        $user = $request->user();
-
-        $terlibat = $user->isAdmin()
-            || $user->sameRoleAs($surat->pembuat)
-            || $surat->disposisi()
-                ->whereHas('pengirim', fn ($q) => $q->where('role_id', $user->role_id))
-                ->orWhereHas('penerima', fn ($q) => $q->where('role_id', $user->role_id))
-                ->exists();
-
-        abort_unless($terlibat, 403, 'Anda tidak memiliki akses ke riwayat disposisi surat ini.');
+        abort_unless(
+            $surat->bisaDiaksesOleh($request->user()),
+            403,
+            'Anda tidak memiliki akses ke riwayat disposisi surat ini.'
+        );
     }
 
     /**
