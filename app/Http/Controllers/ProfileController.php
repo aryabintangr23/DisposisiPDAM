@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\StatusSurat;
+use App\Models\Surat;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -12,11 +14,11 @@ use Illuminate\View\View;
 class ProfileController extends Controller
 {
     /**
-     * Tampilkan form edit profil.
+     * Form edit profil kini digabung ke halaman Pengaturan (tab Edit Profil).
      */
-    public function edit(Request $request): View
+    public function edit(Request $request): RedirectResponse
     {
-        return view('profile.edit', ['user' => $request->user()]);
+        return redirect()->route('profil.pengaturan');
     }
 
     /**
@@ -33,15 +35,31 @@ class ProfileController extends Controller
 
         $user->update($data);
 
-        return redirect()->route('profil.edit')->with('status', 'Profil berhasil diperbarui.');
+        return redirect()->route('profil.pengaturan')->with('status', 'Profil berhasil diperbarui.');
     }
 
     /**
-     * Tampilkan halaman pengaturan (ganti password, dll).
+     * Tampilkan halaman pengaturan (edit profil, ganti password, dll).
+     *
+     * Statistik pada kartu profil dihitung dengan scope Surat::untukRole()
+     * yang sama untuk kelima role (Staff, Kasubag, Kabag, Direktur, Admin),
+     * supaya cara hitungnya konsisten:
+     * - Surat Dibuat  : seluruh surat dalam lingkup user (yang ia buat / tangani).
+     * - Surat Diterima: dari lingkup tsb, yang berstatus "Diterima".
+     * - Surat Ditolak : dari lingkup tsb, yang berstatus "Ditolak".
      */
     public function pengaturan(Request $request): View
     {
-        return view('profile.pengaturan', ['user' => $request->user()]);
+        $user = $request->user();
+
+        $lingkupSurat = fn () => Surat::untukRole($user);
+
+        return view('profile.pengaturan', [
+            'user' => $user,
+            'jumlahSuratDibuat' => $lingkupSurat()->count(),
+            'jumlahSuratDiterima' => $lingkupSurat()->where('status', StatusSurat::Diterima)->count(),
+            'jumlahSuratDitolak' => $lingkupSurat()->where('status', StatusSurat::Ditolak)->count(),
+        ]);
     }
 
     /**
