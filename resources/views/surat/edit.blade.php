@@ -12,6 +12,13 @@
         <p class="mt-1 text-sm text-slate-500">{{ $surat->nomor_surat }} — {{ $surat->perihal }}</p>
     </div>
 
+    @if ($surat->status->value === 'perlu_revisi')
+        <div class="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-5 w-5 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <p>Surat ini sedang dalam <span class="font-semibold">perbaikan revisi</span>. Setelah Anda menekan <span class="font-semibold">Simpan Perubahan</span>, surat akan otomatis dikirim ke <span class="font-semibold">Kasubag Umum</span> untuk direview kembali.</p>
+        </div>
+    @endif
+
     <form method="POST" action="{{ route('surat.update', $surat) }}" enctype="multipart/form-data" class="space-y-6">
         @csrf
         @method('PUT')

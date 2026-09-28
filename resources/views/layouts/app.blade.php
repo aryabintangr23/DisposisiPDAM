@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <title>@yield('title', 'Dashboard') - Disposisi Surat | Perumda Tirta Gemilang</title>
 
     <!-- Tailwind CSS -->
@@ -31,6 +31,16 @@
     <style>
         body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
         [x-cloak] { display: none !important; }
+        /* Cegah auto-zoom Safari iOS / browser HP saat kolom isian difokuskan.
+           Browser HP otomatis memperbesar halaman kalau font input < 16px, dan zoom
+           itu tetap tertinggal setelah login. Di layar kecil, paksa 16px. */
+        @media (max-width: 1023px) {
+            input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+            select,
+            textarea {
+                font-size: 16px !important;
+            }
+        }
     </style>
     @stack('styles')
 </head>

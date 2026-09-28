@@ -134,7 +134,15 @@ class SuratController extends Controller
 
         $kasubag = User::whereHas('role', fn ($q) => $q->where('nama_role', 'kasubag_umum'))->first();
 
-        return view('surat.create', compact('kasubag'));
+        // Kalau form dibuka dari halaman Surat Masuk / Surat Keluar (?arah=masuk|keluar),
+        // arah surat dikunci sesuai halaman asal. Dari "Semua Surat" (tanpa ?arah)
+        // Staff bebas memilih arah surat di form.
+        $arahTerkunci = $request->query('arah');
+        if (! in_array($arahTerkunci, array_column(ArahSurat::cases(), 'value'), true)) {
+            $arahTerkunci = null;
+        }
+
+        return view('surat.create', compact('kasubag', 'arahTerkunci'));
     }
 
     /**
@@ -244,7 +252,7 @@ class SuratController extends Controller
     /**
      * Update data surat dan simpan lampiran tambahan jika ada.
      */
-    public function update(UpdateSuratRequest $request, Surat $surat, LampiranImageService $lampiranImage): RedirectResponse
+    public function update(UpdateSuratRequest $request, Surat $surat, LampiranImageService $lampiranImage, DisposisiRuleService $rule): RedirectResponse
     {
         $this->authorizeEdit($request, $surat);
 
@@ -256,6 +264,29 @@ class SuratController extends Controller
         }
 
         $this->tandaiJikaNomorSudahDipakai($data['nomor_surat'], $data['nomor_agenda'] ?? null, $surat->id);
+
+        // Surat yang sedang berstatus "perlu revisi": begitu Staff menyimpan perbaikan,
+        // surat otomatis dikirim ulang (disposisi) ke Kasubag Umum. Tujuan dicek DULU,
+        // sebelum data disimpan, supaya kalau akun Kasubag tidak ada perubahan tidak
+        // tersimpan setengah jalan.
+        $kirimUlangKeKasubag = $surat->status->value === 'perlu_revisi';
+        $kasubag = null;
+        $prioritasKirimUlang = Prioritas::Biasa;
+
+        if ($kirimUlangKeKasubag) {
+            $kasubag = $rule->akunDenganRole('kasubag_umum');
+
+            abort_unless($kasubag, 422, 'Tidak ada akun Kasubag Umum yang terdaftar untuk menerima revisi surat ini.');
+
+            abort_unless(
+                $rule->bolehDisposisi($request->user(), $kasubag),
+                403,
+                'Tujuan disposisi tidak sesuai alur yang diizinkan.'
+            );
+
+            // Prioritas mengikuti disposisi permintaan revisi terakhir.
+            $prioritasKirimUlang = $surat->disposisiTerakhir()?->prioritas ?? Prioritas::Biasa;
+        }
 
         $surat->update([
             'arah_surat' => $data['arah_surat'],
@@ -305,6 +336,33 @@ class SuratController extends Controller
             'surat',
             $surat->id
         );
+
+        if ($kirimUlangKeKasubag) {
+            $tanggalDisposisi = now();
+
+            // Notifikasi (Message) ke Kasubag dibuat otomatis oleh hook Disposisi::booted(),
+            // jadi tidak perlu membuat Message manual di sini.
+            $surat->disposisi()->create([
+                'pengirim_id' => $request->user()->id,
+                'penerima_id' => $kasubag->id,
+                'tanggal_disposisi' => $tanggalDisposisi,
+                'prioritas' => $prioritasKirimUlang,
+                'batas_waktu' => $rule->hitungBatasWaktu($tanggalDisposisi, $prioritasKirimUlang),
+                'instruksi' => 'Surat telah direvisi oleh '.$request->user()->nama.'. Mohon direview kembali.',
+                'status' => StatusDisposisi::Terkirim,
+            ]);
+
+            LogAktivitas::catat(
+                'disposisi_dikirim',
+                "{$request->user()->nama} menyimpan revisi surat \"{$surat->perihal}\" (No. {$surat->nomor_surat}) dan otomatis mengirim disposisi ke {$kasubag->nama}.",
+                'surat',
+                $surat->id
+            );
+
+            return redirect()
+                ->route('surat.show', $surat)
+                ->with('status', "Data surat berhasil diperbarui dan revisi otomatis dikirim ke {$kasubag->nama} (Kasubag Umum).");
+        }
 
         return redirect()->route('surat.show', $surat)->with('status', 'Data surat berhasil diperbarui.');
     }
@@ -549,21 +607,13 @@ class SuratController extends Controller
     }
 
     /**
-     * Tujuan otomatis disposisi yang dikirim Staff:
-     * - saat surat perlu revisi dan disposisi terakhir masih di tangan Staff, kirim balik
-     *   ke reviewer kasubag/kabag yang meminta revisi (pengirim disposisi terakhir);
-     * - selain itu ke Kasubag Umum sebagai awal alur surat masuk.
+     * Tujuan otomatis disposisi yang dikirim Staff: SELALU Kasubag Umum, baik untuk
+     * awal alur surat masuk maupun untuk surat hasil revisi (walaupun revisi tadinya
+     * diminta Kabag, surat wajib singgah di Kasubag dulu). Harus sama dengan yang
+     * dilakukan DisposisiController::store dan SuratController::update.
      */
     private function tujuanStaff(User $user, Surat $surat): ?User
     {
-        if ($surat->status->value === 'perlu_revisi') {
-            $dispoTerakhir = $surat->disposisiTerakhir();
-
-            if ($dispoTerakhir && $dispoTerakhir->penerima_id === $user->id) {
-                return $dispoTerakhir->pengirim;
-            }
-        }
-
         return User::whereHas('role', fn ($q) => $q->where('nama_role', 'kasubag_umum'))->first();
     }
 

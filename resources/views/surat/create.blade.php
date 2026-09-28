@@ -4,15 +4,31 @@
 
 @section('content')
     <div class="mt-6 mb-6">
-        <a href="{{ route('surat.index') }}" class="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-brand-700">
+        <a href="{{ route('surat.index', $arahTerkunci ? ['arah' => $arahTerkunci] : []) }}" class="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-brand-700">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Kembali ke Daftar Surat
         </a>
-        <h2 class="mt-2 text-2xl font-bold text-slate-800">Input Surat Baru</h2>
-        <p class="mt-1 text-sm text-slate-500">Lengkapi data surat. Untuk surat masuk, lembar disposisi pertama otomatis dikirim ke Kasubag Umum.</p>
+        <h2 class="mt-2 text-2xl font-bold text-slate-800">
+            @if ($arahTerkunci === 'masuk')
+                Input Surat Masuk
+            @elseif ($arahTerkunci === 'keluar')
+                Input Surat Keluar
+            @else
+                Input Surat Baru
+            @endif
+        </h2>
+        <p class="mt-1 text-sm text-slate-500">
+            @if ($arahTerkunci === 'keluar')
+                Lengkapi data surat keluar. Surat keluar disimpan sebagai arsip tanpa lembar disposisi.
+            @elseif ($arahTerkunci === 'masuk')
+                Lengkapi data surat masuk. Lembar disposisi pertama otomatis dikirim ke Kasubag Umum.
+            @else
+                Lengkapi data surat. Untuk surat masuk, lembar disposisi pertama otomatis dikirim ke Kasubag Umum.
+            @endif
+        </p>
     </div>
 
-    <form method="POST" action="{{ route('surat.store') }}" enctype="multipart/form-data" class="space-y-6" x-data="{ arahSurat: '{{ old('arah_surat', 'masuk') }}' }">
+    <form method="POST" action="{{ route('surat.store') }}" enctype="multipart/form-data" class="space-y-6" x-data="{ arahSurat: '{{ $arahTerkunci ?? old('arah_surat', 'masuk') }}' }">
         @csrf
 
         <!-- Section: Data Surat -->
@@ -23,10 +39,16 @@
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Arah Surat</label>
-                    <select name="arah_surat" required x-model="arahSurat" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
-                        <option value="masuk">Surat Masuk</option>
-                        <option value="keluar">Surat Keluar</option>
-                    </select>
+                    @if ($arahTerkunci)
+                        {{-- Arah surat terkunci sesuai halaman asal (Surat Masuk / Surat Keluar). --}}
+                        <input type="hidden" name="arah_surat" value="{{ $arahTerkunci }}">
+                        <input type="text" value="{{ $arahTerkunci === 'keluar' ? 'Surat Keluar' : 'Surat Masuk' }}" readonly tabindex="-1" class="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-sm font-medium text-slate-600 shadow-sm">
+                    @else
+                        <select name="arah_surat" required x-model="arahSurat" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                            <option value="masuk">Surat Masuk</option>
+                            <option value="keluar">Surat Keluar</option>
+                        </select>
+                    @endif
                 </div>
 
                 <div
