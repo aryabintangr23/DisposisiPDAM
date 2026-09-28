@@ -223,7 +223,8 @@ class DisposisiController extends Controller
             'Keputusan surat tidak sesuai alur yang diizinkan.'
         );
 
-        $prioritas = Prioritas::Biasa;
+        // Disposisi hasil keputusan Direktur otomatis berprioritas Sangat Segera (3 hari kalender).
+        $prioritas = Prioritas::SangatSegera;
         $tanggalDisposisi = now();
 
         $disposisi = $surat->disposisi()->create([

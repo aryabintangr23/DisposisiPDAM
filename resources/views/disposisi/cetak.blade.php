@@ -65,8 +65,8 @@
                 @php
                     // Disposisi hasil keputusan Direktur tidak punya akun penerima; tujuannya berupa
                     // JABATAN yang dipilih Direktur dari dropdown (DisposisiRuleService::TUJUAN_JABATAN
-                    // atau "Lainnya" dengan teks bebas). Untuk kasus ini daftar pilihan pada lembar
-                    // disposisi disamakan dengan pilihan Direktur, dan hanya yang dipilih yang dicentang.
+                    // atau "Lainnya" dengan teks bebas). Pada lembar cetak hanya
+                    // jabatan yang dipilih yang ditampilkan (pilihan lain tidak dicetak).
                     $dariKeputusanDirektur = $disposisi->penerima_id === null && filled($disposisi->tujuan_jabatan);
                     $roleTujuan = $disposisi->penerima?->role?->nama_role ?? '';
 
@@ -83,24 +83,25 @@
                 @endphp
                 <ul class="pilihan">
                     @if ($dariKeputusanDirektur)
-                        @foreach ($daftarJabatan as $jabatan)
-                            @php $terpilih = $jabatanCocok === $jabatan; @endphp
-                            <li>
-                                <span class="kotak {{ $terpilih ? 'centang' : '' }}"></span>{{ $jabatan }}
-                                @if (\App\Services\DisposisiRuleService::jabatanPerluBagian($jabatan))
-                                    &nbsp;&ndash; Bagian: {{ $terpilih && $disposisi->tujuan_bagian ? $disposisi->tujuan_bagian : '..............' }}
-                                @endif
-                            </li>
-                        @endforeach
+                        {{-- Hanya jabatan yang dipilih Direktur yang ditampilkan --}}
                         <li>
-                            <span class="kotak {{ $pilihLainnya ? 'centang' : '' }}"></span>Lainnya:
-                            {{ $pilihLainnya ? $jabatanDipilih : '..............' }}
+                            <span class="kotak centang"></span>{{ $pilihLainnya ? $jabatanDipilih : $jabatanCocok }}
+                            @if (! $pilihLainnya && \App\Services\DisposisiRuleService::jabatanPerluBagian($jabatanCocok))
+                                &nbsp;&ndash; Bagian: {{ $disposisi->tujuan_bagian ?: '..............' }}
+                            @endif
                         </li>
                     @else
-                        <li><span class="kotak {{ $roleTujuan === 'staff_umum' ? 'centang' : '' }}"></span>Staff Umum</li>
-                        <li><span class="kotak {{ $roleTujuan === 'kasubag_umum' ? 'centang' : '' }}"></span>Kasubag Umum</li>
-                        <li><span class="kotak {{ $roleTujuan === 'kabag_umum' ? 'centang' : '' }}"></span>Kabag Umum &amp; Administrasi</li>
-                        <li><span class="kotak {{ $roleTujuan === 'direktur' ? 'centang' : '' }}"></span>Direktur</li>
+                        {{-- Hanya role penerima disposisi yang ditampilkan --}}
+                        @php
+                            $labelTujuan = match ($roleTujuan) {
+                                'staff_umum' => 'Staff Umum',
+                                'kasubag_umum' => 'Kasubag Umum',
+                                'kabag_umum' => 'Kabag Umum & Administrasi',
+                                'direktur' => 'Direktur',
+                                default => $disposisi->penerima?->nama ?? '-',
+                            };
+                        @endphp
+                        <li><span class="kotak centang"></span>{{ $labelTujuan }}</li>
                     @endif
                 </ul>
             </td>
