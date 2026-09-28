@@ -48,6 +48,7 @@
             </div>
         </div>
 
+        <div data-auto-refresh="daftar-sampah-surat" data-ids="{{ $surat->pluck('id')->map(fn ($id) => (string) $id)->toJson() }}">
         <div class="mb-2 flex items-center gap-2 px-1 md:hidden">
             <input type="checkbox"
                    class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
@@ -123,9 +124,10 @@
                 </table>
             </div>
         </div>
+        </div>
     </div>
 
-    <div class="mt-5">
+    <div class="mt-5" data-auto-refresh="halaman-sampah-surat">
         {{ $surat->links() }}
     </div>
 @endsection

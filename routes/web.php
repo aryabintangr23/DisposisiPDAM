@@ -60,6 +60,7 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('pesan')->name('pesan.')->group(function () {
         Route::get('/', [MessageController::class, 'index'])->name('index');
+        Route::get('/data', [MessageController::class, 'data'])->name('data');
         Route::get('/sampah', [MessageController::class, 'sampah'])->name('sampah');
         Route::post('/tandai-dibaca', [MessageController::class, 'tandaiDibaca'])->name('tandaiDibaca');
         Route::post('/hapus', [MessageController::class, 'hapus'])->name('hapus');

@@ -133,6 +133,7 @@
                     </div>
                 @endif
 
+                <div data-auto-refresh="daftar-surat" data-ids="{{ $surat->pluck('id')->map(fn ($id) => (string) $id)->toJson() }}">
                 @if ($bisaHapusSurat)
                     <div class="mb-2 flex items-center gap-2 px-1 md:hidden">
                         <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" :checked="allIds.length > 0 && selected.length === allIds.length" @change="selected = $event.target.checked ? [...allIds] : []">
@@ -365,9 +366,10 @@
                         </table>
                     </div>
                 </div>
+                </div>
             </form>
 
-            <div class="mt-5">
+            <div class="mt-5" data-auto-refresh="halaman-surat">
                 {{ $surat->links() }}
             </div>
         </div>
@@ -384,7 +386,7 @@
                 $filterAktif = array_filter(['arah' => $arah, 'prioritas' => $prioritas, 'cari' => $cari, 'jenis_surat' => $jenis]);
             @endphp
 
-            <div class="sticky top-20 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div data-auto-refresh="kalender-surat" class="sticky top-20 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div class="mb-3 flex items-center justify-between">
                     <a href="{{ route('surat.index', array_filter(['bulan' => $bulanSebelumnya]) + $filterAktif) }}" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

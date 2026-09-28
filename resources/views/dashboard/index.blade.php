@@ -25,6 +25,7 @@
         </div>
     </div>
 
+    <div data-auto-refresh="dashboard-isi">
     {{-- Peringatan Surat Mendekati Batas Waktu --}}
     @if ($disposisiMendekati->isNotEmpty())
         <div class="mb-6 overflow-hidden rounded-xl border border-amber-200 bg-amber-50 shadow-sm">
@@ -165,4 +166,5 @@
             </div>
         </div>
     @endif
+    </div>
 @endsection
