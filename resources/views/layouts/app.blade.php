@@ -198,11 +198,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                 </svg>
                                 @php $jumlahBelumDibaca = auth()->user()->jumlahPesanBelumDibaca(); @endphp
-                                @if ($jumlahBelumDibaca > 0)
-                                    <span class="absolute -right-0.5 -top-0.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[10px] font-bold text-white">
-                                        {{ $jumlahBelumDibaca > 9 ? '9+' : $jumlahBelumDibaca }}
-                                    </span>
-                                @endif
+                                <span data-badge-pesan class="absolute -right-0.5 -top-0.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[10px] font-bold text-white" @if ($jumlahBelumDibaca === 0) style="display:none" @endif>{{ $jumlahBelumDibaca > 9 ? '9+' : $jumlahBelumDibaca }}</span>
                             </a>
                         @endunless
                         <span class="hidden rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 sm:inline-block">
@@ -333,6 +329,133 @@
             }
         });
     </script>
+    @auth
+        @unless (auth()->user()->isAdmin())
+            <script>
+                // Auto-load pesan: cek server tiap 10 detik (tanpa refresh halaman).
+                (function () {
+                    if (window.__pesanPolling) return;
+                    window.__pesanPolling = true;
+
+                    const URL_DATA = @json(route('pesan.data'));
+                    const DAFTAR_URL_MASUK = @json(route('pesan.index'));
+                    let terakhir = {{ (int) auth()->user()->jumlahPesanBelumDibaca() }};
+
+                    function setBadge(n) {
+                        document.querySelectorAll('[data-badge-pesan]').forEach((el) => {
+                            el.textContent = n > 9 ? '9+' : n;
+                            el.style.display = n > 0 ? '' : 'none';
+                        });
+                    }
+
+                    function toast(n) {
+                        const el = document.createElement('div');
+                        el.className = 'fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-xl border border-brand-200 bg-white p-4 shadow-lg ring-1 ring-black/5 sm:right-6 sm:top-6';
+                        el.innerHTML = '<p class="text-sm font-semibold text-slate-800">Anda punya pesan baru</p>'
+                            + '<p class="mt-0.5 text-sm text-slate-500">' + n + ' pesan belum dibaca.</p>'
+                            + '<a href="' + DAFTAR_URL_MASUK + '" class="mt-1.5 inline-block text-sm font-semibold text-brand-700 hover:underline">Lihat pesan</a>';
+                        document.body.appendChild(el);
+                        setTimeout(() => el.remove(), 6000);
+                    }
+
+                    function tick() {
+                        if (document.hidden) return;
+
+                        const daftar = document.getElementById('daftar-pesan');
+                        const params = new URLSearchParams(daftar ? window.location.search : '');
+                        if (daftar) params.set('daftar', '1');
+
+                        fetch(URL_DATA + (params.toString() ? '?' + params.toString() : ''), {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                            credentials: 'same-origin',
+                        })
+                            .then((r) => (r.ok ? r.json() : null))
+                            .then((data) => {
+                                if (!data) return;
+
+                                setBadge(data.belum_dibaca);
+                                if (data.belum_dibaca > terakhir) toast(data.belum_dibaca);
+                                terakhir = data.belum_dibaca;
+
+                                const ul = document.getElementById('daftar-pesan');
+                                if (ul && data.html !== undefined && ul.dataset.signature !== data.signature) {
+                                    ul.innerHTML = data.html;
+                                    ul.dataset.signature = data.signature;
+
+                                    const form = document.getElementById('form-pesan');
+                                    if (form && window.Alpine) {
+                                        const state = Alpine.$data(form);
+                                        state.allIds = data.ids;
+                                        state.selected = state.selected.filter((id) => data.ids.includes(id));
+                                    }
+                                }
+                            })
+                            .catch(() => {});
+                    }
+
+                    setInterval(tick, 10000);
+                    document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+                })();
+            </script>
+        @endunless
+    @endauth
+    @auth
+        <script>
+            // Auto-load tabel/dashboard: area bertanda [data-auto-refresh] diperbarui tiap 10 detik
+            // dari server tanpa refresh halaman. Filter, halaman, dan kotak yang dicentang tetap terjaga.
+            (function () {
+                if (window.__autoRefreshWilayah) return;
+                window.__autoRefreshWilayah = true;
+
+                const sidikJari = (el) => el.textContent.replace(/\s+/g, ' ').trim() + '|'
+                    + Array.from(el.querySelectorAll('a[href]')).map((a) => a.getAttribute('href')).join(',');
+                let sedangMemuat = false;
+
+                function tick() {
+                    if (document.hidden || sedangMemuat) return;
+                    const wilayah = document.querySelectorAll('[data-auto-refresh]');
+                    if (!wilayah.length) return;
+
+                    sedangMemuat = true;
+                    fetch(window.location.href, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
+                        credentials: 'same-origin',
+                    })
+                        .then((r) => (r.ok ? r.text() : null))
+                        .then((html) => {
+                            if (!html) return;
+                            const doc = new DOMParser().parseFromString(html, 'text/html');
+                            const baru = Array.from(doc.querySelectorAll('[data-auto-refresh]'));
+
+                            wilayah.forEach((sekarang) => {
+                                const segar = baru.find((e) => e.dataset.autoRefresh === sekarang.dataset.autoRefresh);
+                                if (!segar || sidikJari(sekarang) === sidikJari(segar)) return;
+
+                                sekarang.innerHTML = segar.innerHTML;
+
+                                if (segar.dataset.ids !== undefined) {
+                                    sekarang.dataset.ids = segar.dataset.ids;
+                                    const pemilik = sekarang.closest('[x-data]');
+                                    if (pemilik && window.Alpine) {
+                                        try {
+                                            const ids = JSON.parse(segar.dataset.ids);
+                                            const state = Alpine.$data(pemilik);
+                                            state.allIds = ids;
+                                            state.selected = state.selected.filter((id) => ids.includes(id));
+                                        } catch (e) {}
+                                    }
+                                }
+                            });
+                        })
+                        .catch(() => {})
+                        .finally(() => { sedangMemuat = false; });
+                }
+
+                setInterval(tick, 10000);
+                document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+            })();
+        </script>
+    @endauth
     @stack('scripts')
 </body>
 </html>

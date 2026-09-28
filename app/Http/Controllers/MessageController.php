@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\ArahSurat;
 use App\Models\Message;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -29,6 +30,33 @@ class MessageController extends Controller
      */
     public function index(Request $request): View
     {
+        [$pesan, $arah, $kotak] = $this->ambilDaftar($request);
+        $signature = $this->signatureDaftar($pesan);
+
+        return view('messages.index', compact('pesan', 'arah', 'kotak', 'signature'));
+    }
+
+    /**
+     * Data ringan untuk auto-load (polling): jumlah belum dibaca dan, bila diminta,
+     * HTML daftar pesan terbaru — tanpa perlu refresh/restart halaman.
+     */
+    public function data(Request $request): JsonResponse
+    {
+        $payload = ['belum_dibaca' => auth()->user()->jumlahPesanBelumDibaca()];
+
+        if ($request->boolean('daftar')) {
+            [$pesan, , $kotak] = $this->ambilDaftar($request);
+
+            $payload['signature'] = $this->signatureDaftar($pesan);
+            $payload['ids'] = $pesan->pluck('id')->map(fn ($id) => (string) $id)->all();
+            $payload['html'] = view('messages._daftar', compact('pesan', 'kotak'))->render();
+        }
+
+        return response()->json($payload);
+    }
+
+    private function ambilDaftar(Request $request): array
+    {
         $user = auth()->user();
 
         $kotak = $request->query('kotak', 'masuk');
@@ -52,7 +80,13 @@ class MessageController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        return view('messages.index', compact('pesan', 'arah', 'kotak'));
+        return [$pesan, $arah, $kotak];
+    }
+
+    /** Sidik jari daftar (id + status baca + total) untuk mendeteksi perubahan. */
+    private function signatureDaftar($pesan): string
+    {
+        return md5($pesan->total().'|'.$pesan->map(fn ($m) => $m->id.':'.(int) $m->is_read)->implode(','));
     }
 
     /**
