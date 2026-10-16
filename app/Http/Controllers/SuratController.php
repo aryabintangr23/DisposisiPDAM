@@ -340,6 +340,9 @@ class SuratController extends Controller
         if ($kirimUlangKeKasubag) {
             $tanggalDisposisi = now();
 
+            // Permintaan revisi yang diterima Staff dianggap sudah ditanggapi saat revisi dikirim ulang.
+            $rule->tandaiDisposisiMasuk($surat, $request->user(), StatusDisposisi::Diterima);
+
             // Notifikasi (Message) ke Kasubag dibuat otomatis oleh hook Disposisi::booted(),
             // jadi tidak perlu membuat Message manual di sini.
             $surat->disposisi()->create([
@@ -548,7 +551,7 @@ class SuratController extends Controller
     {
         $surat->disposisi()
             ->whereHas('penerima', fn ($q) => $q->where('role_id', $user->role_id))
-            ->whereIn('status', [StatusDisposisi::Terkirim, StatusDisposisi::Diterima])
+            ->where('status', StatusDisposisi::Terkirim)
             ->update(['status' => StatusDisposisi::Dibaca]);
     }
 

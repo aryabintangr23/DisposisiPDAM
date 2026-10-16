@@ -129,7 +129,8 @@ class Disposisi extends Model
      */
     public function isOverdue(): bool
     {
-        if ($this->status === StatusDisposisi::Selesai || $this->batas_waktu === null) {
+        // Langkah yang sudah diterima / diminta revisi / selesai tidak lagi terlambat.
+        if ($this->status->sudahDitanggapi() || $this->batas_waktu === null) {
             return false;
         }
 
@@ -141,7 +142,7 @@ class Disposisi extends Model
      */
     public function scopeOverdue(Builder $query): Builder
     {
-        return $query->where('status', '!=', StatusDisposisi::Selesai->value)
+        return $query->whereNotIn('status', [StatusDisposisi::Diterima->value, StatusDisposisi::Revisi->value, StatusDisposisi::Selesai->value])
             ->whereNotNull('batas_waktu')
             ->whereDate('batas_waktu', '<', now()->toDateString());
     }
@@ -151,7 +152,7 @@ class Disposisi extends Model
      */
     public function scopeMendekatiBatas(Builder $query, int $dalamHari = 3): Builder
     {
-        return $query->where('status', '!=', StatusDisposisi::Selesai->value)
+        return $query->whereNotIn('status', [StatusDisposisi::Diterima->value, StatusDisposisi::Revisi->value, StatusDisposisi::Selesai->value])
             ->whereNotNull('batas_waktu')
             ->whereHas('surat', fn (Builder $q) => $q->whereNotIn('status', [
                 StatusSurat::Diterima->value,

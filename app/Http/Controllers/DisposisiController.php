@@ -70,6 +70,14 @@ class DisposisiController extends Controller
         $prioritas = Prioritas::from($data['prioritas']);
         $tanggalDisposisi = now();
 
+        // Disposisi masuk milik pengirim ditandai sudah ditanggapi: Revisi bila ia
+        // meminta revisi, selain itu Diterima.
+        $rule->tandaiDisposisiMasuk(
+            $surat,
+            $pengirim,
+            $keputusan === 'perlu_revisi' ? StatusDisposisi::Revisi : StatusDisposisi::Diterima
+        );
+
         $surat->disposisi()->create([
             'pengirim_id' => $pengirim->id,
             'penerima_id' => $penerima->id,
@@ -227,6 +235,9 @@ class DisposisiController extends Controller
         $prioritas = Prioritas::SangatSegera;
         $tanggalDisposisi = now();
 
+        // Keputusan Direktur (diterima/ditolak) menyelesaikan seluruh langkah alur sebelumnya.
+        $rule->selesaikanSeluruhAlur($surat);
+
         $disposisi = $surat->disposisi()->create([
             'pengirim_id' => $user->id,
             'penerima_id' => null,
@@ -339,6 +350,8 @@ class DisposisiController extends Controller
         $prioritas = $dispoTerakhir->prioritas;
         $tanggalDisposisi = now();
 
+        $statusTanggapan = $data['keputusan'] === 'approve' ? StatusDisposisi::Diterima : StatusDisposisi::Revisi;
+
         if ($data['keputusan'] === 'approve') {
             $roleTujuan = $rule->roleBerikutnya((string) $user->role?->nama_role);
             abort_unless($roleTujuan, 422, 'Tidak ada tahap berikutnya pada alur untuk diteruskan.');
@@ -356,6 +369,9 @@ class DisposisiController extends Controller
                 403,
                 'Tujuan penerusan disposisi tidak sesuai alur yang diizinkan.'
             );
+
+            // Tandai disposisi masuk yang sedang direview (setelah semua validasi lolos).
+            $rule->tandaiDisposisiMasuk($surat, $user, $statusTanggapan);
 
             $surat->disposisi()->create([
                 'pengirim_id' => $user->id,
@@ -386,6 +402,9 @@ class DisposisiController extends Controller
                 403,
                 'Tujuan pengembalian disposisi tidak sesuai alur yang diizinkan.'
             );
+
+            // Tandai disposisi masuk yang sedang direview (setelah semua validasi lolos).
+            $rule->tandaiDisposisiMasuk($surat, $user, $statusTanggapan);
 
             $surat->disposisi()->create([
                 'pengirim_id' => $user->id,
@@ -472,6 +491,8 @@ class DisposisiController extends Controller
         $prioritas = Prioritas::Biasa;
         $tanggalDisposisi = now();
 
+        $statusTanggapan = $data['keputusan'] === 'diterima' ? StatusDisposisi::Diterima : StatusDisposisi::Revisi;
+
         if ($data['keputusan'] === 'diterima') {
             $roleTujuan = $rule->roleBerikutnya((string) $user->role?->nama_role);
             abort_unless($roleTujuan, 422, 'Tidak ada tahap berikutnya pada alur untuk diteruskan.');
@@ -489,6 +510,9 @@ class DisposisiController extends Controller
                 403,
                 'Tujuan penerusan disposisi tidak sesuai alur yang diizinkan.'
             );
+
+            // Tandai disposisi masuk yang sedang direview (setelah semua validasi lolos).
+            $rule->tandaiDisposisiMasuk($surat, $user, $statusTanggapan);
 
             $surat->disposisi()->create([
                 'pengirim_id' => $user->id,
@@ -523,6 +547,9 @@ class DisposisiController extends Controller
                 403,
                 'Tujuan pengembalian disposisi tidak sesuai alur yang diizinkan.'
             );
+
+            // Tandai disposisi masuk yang sedang direview (setelah semua validasi lolos).
+            $rule->tandaiDisposisiMasuk($surat, $user, $statusTanggapan);
 
             $surat->disposisi()->create([
                 'pengirim_id' => $user->id,

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\Prioritas;
+use App\Enums\StatusDisposisi;
 use App\Enums\StatusSurat;
 use App\Models\LogAktivitas;
 use App\Models\Surat;
@@ -133,6 +134,40 @@ class DisposisiRuleService
         }
 
         return false;
+    }
+
+    /**
+     * Tandai disposisi masuk TERAKHIR milik $user pada surat ini (yang belum
+     * ditanggapi) dengan status hasil tanggapannya: Diterima atau Revisi.
+     * Dipakai oleh semua alur (review Kasubag/Kabag, kirim langsung, dan Staff
+     * yang mengirim ulang revisi) agar keterangan riwayat selalu konsisten.
+     */
+    public function tandaiDisposisiMasuk(Surat $surat, User $user, StatusDisposisi $status): void
+    {
+        $masuk = $surat->disposisi()
+            ->where('penerima_id', $user->id)
+            ->whereNotIn('status', [
+                StatusDisposisi::Diterima->value,
+                StatusDisposisi::Revisi->value,
+                StatusDisposisi::Selesai->value,
+            ])
+            ->latest('id')
+            ->first();
+
+        $masuk?->update(['status' => $status]);
+    }
+
+    /**
+     * Setelah Direktur memutuskan (diterima/ditolak), seluruh langkah alur
+     * (Staff, Kasubag, Kabag, dan penerimaan Direktur) ditandai Selesai.
+     * Panggil SEBELUM membuat disposisi keputusan ke jabatan.
+     */
+    public function selesaikanSeluruhAlur(Surat $surat): void
+    {
+        $surat->disposisi()
+            ->whereNotNull('penerima_id')
+            ->where('status', '!=', StatusDisposisi::Selesai->value)
+            ->update(['status' => StatusDisposisi::Selesai->value]);
     }
 
     /**

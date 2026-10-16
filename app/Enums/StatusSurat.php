@@ -7,13 +7,8 @@ enum StatusSurat: string
     case Baru = 'baru';
     case Diterima = 'diterima';
     case Ditolak = 'ditolak';
-    case PerluRevisi = 'perlu_revisi'; // hanya berlaku untuk surat keluar
+    case PerluRevisi = 'perlu_revisi'; 
 
-    /**
-     * Sesuai konfirmasi:
-     * - Surat masuk: bisa diterima / ditolak
-     * - Surat keluar: bisa diterima / ditolak / perlu revisi
-     */
     public static function untukArah(ArahSurat $arah): array
     {
         return match ($arah) {

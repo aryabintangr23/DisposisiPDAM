@@ -19,7 +19,9 @@
     $dispoTerakhir = $semuaDisposisi->last();
     $statusSurat = $surat->status->value;
     $suratFinal = in_array($statusSurat, ['diterima', 'ditolak'], true);
+    // isOverdue() otomatis false bila langkah sudah diterima / revisi / selesai.
     $adaTerlambat = $dispoTerakhir?->isOverdue() ?? false;
+    $dispoTerakhirDitanggapi = $dispoTerakhir?->status->sudahDitanggapi() ?? false;
 
     $namaRole = fn (?string $role) => match ($role) {
         'staff_umum' => 'Staff Umum',
@@ -88,7 +90,8 @@
         'selesai' => 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
         'ditindaklanjuti' => 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200',
         'dibaca' => 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200',
-        'diterima' => 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
+        'diterima' => 'bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-200',
+        'revisi' => 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-200',
         default => 'bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200',
     };
 
@@ -174,7 +177,7 @@
                             {{ $dispoTerakhir->prioritas->label() }}
                         </span>
                     @endif
-                    @if (! $suratFinal && $dispoTerakhir?->batas_waktu)
+                    @if (! $suratFinal && ! $dispoTerakhirDitanggapi && $dispoTerakhir?->batas_waktu)
                         <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $adaTerlambat ? 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200' : 'bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200' }}">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             {{ $adaTerlambat ? 'Lewat batas' : 'Batas' }} {{ $dispoTerakhir->batas_waktu->format('d-m-Y') }}
@@ -295,7 +298,7 @@
                                     {{ $d->created_at?->format('d-m-Y H:i') }}
                                     <span class="mx-1">&middot;</span>
                                     <span class="waktu-relatif-disposisi" data-waktu="{{ $d->created_at?->toIso8601String() }}">{{ $d->created_at?->locale('id')->diffForHumans() }}</span>
-                                    @if ($d->batas_waktu)
+                                    @if ($d->batas_waktu && ! $d->status->sudahDitanggapi())
                                         <span class="mx-1">&middot;</span>
                                         Batas waktu {{ $d->batas_waktu->format('d-m-Y') }}
                                     @endif
@@ -333,7 +336,7 @@
                                         </form>
                                     @endif
 
-                                    @if ($userAktif->isStaff() && $d->penerima_id === $userAktif->id && $d->status->value !== 'selesai')
+                                    @if ($userAktif->isStaff() && $d->penerima_id === $userAktif->id && ! $d->status->sudahDitanggapi())
                                         <form method="POST" action="{{ route('disposisi.selesaikan', [$surat, $d]) }}">
                                             @csrf
                                             <button type="submit" class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
