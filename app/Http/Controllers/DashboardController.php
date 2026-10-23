@@ -73,6 +73,28 @@ class DashboardController extends Controller
                 ->values();
         }
 
-        return view('dashboard.index', compact('lihatStatistik', 'jumlahSurat', 'jumlahMasuk', 'jumlahKeluar', 'statistikPerBulan', 'statistikStatus', 'disposisiMendekati'));
+        // Daftar surat yang belum ditindaklanjuti (belum final: status Baru / Perlu Revisi).
+        // Berlaku untuk semua role, mengikuti cakupan data role masing-masing.
+        $statusBelumTindak = [StatusSurat::Baru, StatusSurat::PerluRevisi];
+        $filterTindak = $request->query('status_tindak');
+        if (! in_array($filterTindak, array_map(fn (StatusSurat $s) => $s->value, $statusBelumTindak), true)) {
+            $filterTindak = null;
+        }
+
+        $jumlahBelumTindak = [];
+        foreach ($statusBelumTindak as $status) {
+            $jumlahBelumTindak[$status->value] = $scope()->where('status', $status->value)->count();
+        }
+        $jumlahBelumTindak['semua'] = array_sum($jumlahBelumTindak);
+
+        $suratBelumTindak = $scope()
+            ->whereIn('status', $filterTindak ? [$filterTindak] : array_map(fn (StatusSurat $s) => $s->value, $statusBelumTindak))
+            ->with(['disposisi.penerima', 'pembuat'])
+            ->latest()
+            ->paginate(10, ['*'], 'tindak_page')
+            ->withQueryString()
+            ->fragment('belum-ditindaklanjuti');
+
+        return view('dashboard.index', compact('lihatStatistik', 'jumlahSurat', 'jumlahMasuk', 'jumlahKeluar', 'statistikPerBulan', 'statistikStatus', 'disposisiMendekati', 'suratBelumTindak', 'filterTindak', 'jumlahBelumTindak'));
     }
 }

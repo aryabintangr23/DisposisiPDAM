@@ -166,5 +166,80 @@
             </div>
         </div>
     @endif
+
+    {{-- Daftar Surat Belum Ditindaklanjuti (semua role) --}}
+    <div id="belum-ditindaklanjuti" class="mb-6 scroll-mt-24 rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h3 class="text-sm font-bold text-slate-700">Surat Belum Ditindaklanjuti</h3>
+                <p class="mt-0.5 text-xs text-slate-400">Surat yang belum final (status Baru atau Perlu Revisi) dalam cakupan role Anda.</p>
+            </div>
+
+            @php
+                $opsiTindak = [
+                    ['nilai' => null, 'label' => 'Semua', 'jumlah' => $jumlahBelumTindak['semua']],
+                    ['nilai' => 'baru', 'label' => 'Baru', 'jumlah' => $jumlahBelumTindak['baru']],
+                    ['nilai' => 'perlu_revisi', 'label' => 'Perlu Revisi', 'jumlah' => $jumlahBelumTindak['perlu_revisi']],
+                ];
+            @endphp
+            <div class="flex flex-wrap items-center gap-2">
+                @foreach ($opsiTindak as $opsi)
+                    @php $aktif = $filterTindak === $opsi['nilai']; @endphp
+                    <a href="{{ route('dashboard', $opsi['nilai'] ? ['status_tindak' => $opsi['nilai']] : []) }}#belum-ditindaklanjuti"
+                       class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition {{ $aktif ? 'border-sky-600 bg-sky-600 text-white' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50' }}">
+                        {{ $opsi['label'] }}
+                        <span class="rounded-full px-1.5 text-[10px] {{ $aktif ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500' }}">{{ number_format($opsi['jumlah']) }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+
+        @if ($suratBelumTindak->isNotEmpty())
+            <ul class="divide-y divide-slate-100">
+                @foreach ($suratBelumTindak as $item)
+                    @php
+                        $dispoTerakhir = $item->disposisi->last();
+                        $warnaBadgeTindak = match ($item->status->value) {
+                            'baru' => 'bg-amber-50 text-amber-700',
+                            'perlu_revisi' => 'bg-orange-50 text-orange-700',
+                            default => 'bg-slate-100 text-slate-600',
+                        };
+                    @endphp
+                    <li>
+                        <a href="{{ route('surat.show', $item) }}" class="group flex flex-col gap-2 px-5 py-3 transition hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-semibold text-slate-800 group-hover:text-sky-700">
+                                    {{ $item->nomor_surat }}
+                                    <span class="font-normal text-slate-400">&middot;</span>
+                                    <span class="font-normal text-slate-600">{{ $item->perihal }}</span>
+                                </p>
+                                <p class="mt-0.5 text-xs text-slate-500">
+                                    {{ $item->arah_surat->value === 'masuk' ? 'Surat Masuk' : 'Surat Keluar' }}
+                                    &middot; {{ $item->tanggal_surat?->translatedFormat('d F Y') ?? '-' }}
+                                    @if ($dispoTerakhir)
+                                        &middot; Posisi terakhir: {{ $dispoTerakhir->keTujuanLabel() }}
+                                    @else
+                                        &middot; Belum ada disposisi
+                                    @endif
+                                </p>
+                            </div>
+                            <div class="flex shrink-0 items-center gap-2">
+                                <span class="rounded-full px-2.5 py-1 text-[11px] font-bold {{ $warnaBadgeTindak }}">{{ $item->status->label() }}</span>
+                                <span class="text-xs font-semibold text-sky-700 group-hover:underline">Detail &rarr;</span>
+                            </div>
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+
+            @if ($suratBelumTindak->hasPages())
+                <div class="border-t border-slate-200 px-5 py-3">
+                    {{ $suratBelumTindak->links() }}
+                </div>
+            @endif
+        @else
+            <p class="px-5 py-6 text-sm text-slate-400">Tidak ada surat yang belum ditindaklanjuti{{ $filterTindak ? ' dengan status ini' : '' }}.</p>
+        @endif
+    </div>
     </div>
 @endsection
