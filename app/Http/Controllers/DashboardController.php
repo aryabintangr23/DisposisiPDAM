@@ -23,10 +23,22 @@ class DashboardController extends Controller
         $scope = fn () => Surat::untukRole($user);
 
         // Ambil maksimal 10 disposisi yang mendekati batas waktu (khusus Kasubag, Kabag & Direktur)
+        // Hanya tampilkan disposisi yang ditujukan ke user saat ini agar hilang begitu dia menindaklanjuti
         $disposisiMendekati = collect();
         if ($user->isKasubag() || $user->isKabag() || $user->isDirektur()) {
             $disposisiMendekati = Disposisi::query()
                 ->whereIn('surat_id', $scope()->select('id'))
+                ->where(function ($q) use ($user) {
+                    $q->where('penerima_id', $user->id)
+                        ->orWhere(function ($q) use ($user) {
+                            // Direktur bisa melihat disposisi yang ditujukan ke jabatan saat surat berada di tahapnya
+                            if ($user->isDirektur()) {
+                                $q->whereNull('penerima_id');
+                            } else {
+                                $q->whereRaw('1 = 0');
+                            }
+                        });
+                })
                 ->mendekatiBatas()
                 ->with(['surat', 'pengirim', 'penerima'])
                 ->orderBy('batas_waktu')

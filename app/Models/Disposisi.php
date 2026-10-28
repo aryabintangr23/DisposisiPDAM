@@ -149,6 +149,8 @@ class Disposisi extends Model
 
     /**
      * Scope filter disposisi yang mendekati tenggat waktu (untuk peringatan dashboard).
+     * Hanya disposisi dengan status Terkirim/Dibaca/Belum ditanggapi yang ditampilkan
+     * agar hilang saat penerima sudah menanggapi (Diterima/Revisi) atau menyelesaikan.
      */
     public function scopeMendekatiBatas(Builder $query, int $dalamHari = 3): Builder
     {
