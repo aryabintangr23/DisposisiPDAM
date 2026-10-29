@@ -7,6 +7,7 @@ use App\Models\LogAktivitas;
 use App\Models\Surat;
 use App\Models\TautanPublikDisposisi;
 use App\Services\SuratPdfService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,7 +19,7 @@ class TautanPublikController extends Controller
      * Hanya Staff Umum yang boleh membuat, menyalin, atau mengirim tautan ini —
      * begitu tautan dibuat, siapa pun yang memegangnya bisa membukanya tanpa login.
      */
-    public function store(Request $request, Surat $surat, Disposisi $disposisi): RedirectResponse
+    public function store(Request $request, Surat $surat, Disposisi $disposisi): JsonResponse|RedirectResponse
     {
         $user = $request->user();
 
@@ -52,7 +53,22 @@ class TautanPublikController extends Controller
             );
         }
 
-        return back()->with('tautanPublikUrl', route('tautanPublik.publik', $tautan->token));
+        $url = route('tautanPublik.publik', $tautan->token);
+
+        // Tombol di riwayat disposisi memakai AJAX: tautan dikembalikan langsung
+        // sebagai JSON dan ditampilkan di kartu yang diklik. Ini membuat tautan
+        // muncul pada klik pertama — tidak lagi bergantung pada flash yang bisa
+        // hilang karena request polling halaman berjalan bersamaan.
+        if ($request->expectsJson()) {
+            return response()->json([
+                'url' => $url,
+                'baru' => $tautan->wasRecentlyCreated,
+            ]);
+        }
+
+        return redirect()
+            ->route('surat.show', $surat)
+            ->with('tautanPublikUrl', $url);
     }
 
     /**

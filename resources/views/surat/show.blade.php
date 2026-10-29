@@ -519,4 +519,154 @@
         });
     })();
 </script>
+
+<script>
+    /**
+     * Tombol "Bagikan Tautan Publik" (di partial riwayat disposisi).
+     *
+     * Dulu tombol ini melakukan submit form biasa lalu mengandalkan flash
+     * "tautanPublikUrl" setelah redirect. Karena halaman ini punya beberapa
+     * request polling (riwayat, pesan, auto-refresh), flash bisa terpakai oleh
+     * request lain sebelum halaman selesai dirender — akibatnya Staff harus
+     * menekan tombol beberapa kali sebelum tautan muncul.
+     *
+     * Sekarang tautan diambil lewat AJAX dan langsung ditampilkan di kartu
+     * disposisi yang diklik, jadi cukup satu klik. Listener dipasang di
+     * document karena isi kartu riwayat bisa diganti oleh polling.
+     */
+    (function () {
+        if (window.__bagikanTautanPublik) return;
+        window.__bagikanTautanPublik = true;
+
+        function buatPanelTautan(url) {
+            const panel = document.createElement('div');
+            panel.className = 'mt-2 rounded-lg border border-brand-200 bg-brand-50 p-3';
+
+            const judul = document.createElement('p');
+            judul.className = 'text-[11px] font-semibold text-brand-800';
+            judul.textContent = 'Tautan publik siap dibagikan (berlaku 30 hari):';
+
+            const baris = document.createElement('div');
+            baris.className = 'mt-1.5 flex flex-wrap items-center gap-2';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.readOnly = true;
+            input.value = url;
+            input.className = 'w-full min-w-0 flex-1 rounded-lg border border-brand-200 bg-white px-3 py-2 text-xs text-slate-700 sm:w-auto';
+            input.addEventListener('click', function () { input.select(); });
+
+            const salin = document.createElement('button');
+            salin.type = 'button';
+            salin.className = 'shrink-0 rounded-lg bg-brand-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-800';
+            salin.textContent = 'Salin Link';
+            salin.addEventListener('click', function () {
+                const tandaiTersalin = function () {
+                    salin.textContent = 'Tersalin!';
+                    setTimeout(function () { salin.textContent = 'Salin Link'; }, 2000);
+                };
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(url).then(tandaiTersalin).catch(function () {
+                        input.select();
+                        document.execCommand('copy');
+                        tandaiTersalin();
+                    });
+                } else {
+                    input.select();
+                    document.execCommand('copy');
+                    tandaiTersalin();
+                }
+            });
+
+            const buka = document.createElement('a');
+            buka.href = url;
+            buka.target = '_blank';
+            buka.rel = 'noopener';
+            buka.className = 'shrink-0 rounded-lg border border-brand-200 bg-white px-3 py-2 text-xs font-semibold text-brand-700 transition hover:bg-brand-100';
+            buka.textContent = 'Buka Tautan';
+
+            baris.append(input, salin, buka);
+            panel.append(judul, baris);
+
+            return panel;
+        }
+
+        document.addEventListener('submit', function (event) {
+            const form = event.target;
+
+            if (!(form instanceof HTMLFormElement) || !form.matches('form[data-bagikan-tautan]')) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const tombol = form.querySelector('button[type="submit"]');
+            const label = tombol ? tombol.querySelector('[data-label-tautan]') : null;
+            const teksAwal = label ? label.textContent : '';
+            const hasil = form.closest('[data-disposisi-item]')?.querySelector('[data-tautan-hasil]');
+            const token = form.querySelector('input[name="_token"]');
+
+            if (tombol) tombol.disabled = true;
+            if (label) label.textContent = 'Membuat tautan...';
+            if (hasil) hasil.innerHTML = '';
+
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': token ? token.value : '',
+                },
+                credentials: 'same-origin',
+            })
+                .then(function (response) {
+                    return response.ok ? response.json() : Promise.reject(response);
+                })
+                .then(function (data) {
+                    if (!hasil) return;
+
+                    const panel = buatPanelTautan(data.url);
+                    hasil.appendChild(panel);
+
+                    const input = panel.querySelector('input');
+                    if (input) {
+                        input.focus();
+                        input.select();
+                    }
+
+                    panel.scrollIntoView({ block: 'nearest' });
+                })
+                .catch(function (response) {
+                    if (!hasil) return;
+
+                    const tampilkanGalat = function (pesan) {
+                        const galat = document.createElement('p');
+                        galat.className = 'mt-2 text-xs font-medium text-rose-700';
+                        galat.textContent = pesan;
+                        hasil.appendChild(galat);
+                    };
+
+                    const pesanDefault = 'Tautan publik gagal dibuat. Pastikan surat sudah disetujui Direktur, lalu coba lagi.';
+
+                    if (response && typeof response.json === 'function') {
+                        return response.json()
+                            .then(function (data) {
+                                tampilkanGalat(data && data.message ? data.message : pesanDefault);
+                            })
+                            .catch(function () {
+                                tampilkanGalat(pesanDefault);
+                            });
+                    }
+
+                    tampilkanGalat(pesanDefault);
+                })
+                .finally(function () {
+                    if (tombol) tombol.disabled = false;
+                    if (label) label.textContent = teksAwal;
+                });
+        }, true);
+    })();
+</script>
 @endpush
