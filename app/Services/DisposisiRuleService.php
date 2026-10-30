@@ -26,7 +26,8 @@ class DisposisiRuleService
 
     /**
      * Daftar tetap jabatan tujuan disposisi keputusan Direktur (ditampilkan sebagai
-     * dropdown; disimpan sebagai label, tidak memerlukan akun pengguna). Jabatan
+     * checkbox sehingga satu keputusan bisa diarahkan ke lebih dari satu jabatan;
+     * disimpan sebagai label, tidak memerlukan akun pengguna). Jabatan
      * "Kepala Unit" dan "Kasubag" bersifat umum/universal sehingga wajib ditambah
      * keterangan "bagian" (lihat JABATAN_PERLU_BAGIAN).
      */
@@ -49,8 +50,8 @@ class DisposisiRuleService
     ];
 
     /**
-     * Nilai sentinel pilihan "Lainnya" pada dropdown jabatan tujuan keputusan
-     * Direktur. Saat dipilih, Direktur mengetik jabatan manual di
+     * Nilai sentinel pilihan "Lainnya" pada daftar checkbox jabatan tujuan
+     * keputusan Direktur. Saat dicentang, Direktur mengetik jabatan manual di
      * `tujuan_jabatan_lain`.
      */
     public const JABATAN_LAINNYA = '__lainnya__';

@@ -249,10 +249,10 @@
                         @php
                             $terlambatItem = $d->isOverdue();
                             $langkahKe = $semuaDisposisi->search(fn ($x) => $x->id === $d->id) + 1;
-                            $tujuanNama = $d->penerima?->nama ?? ($d->tujuan_jabatan ?? '-');
+                            $tujuanNama = $d->penerima?->nama ?? $d->tujuanJabatanLabel();
                             $tujuanLabel = $d->penerima
                                 ? $namaRole($d->penerima?->role?->nama_role)
-                                : trim(($d->tujuan_jabatan ?? '').($d->tujuan_bagian ? ' ('.$d->tujuan_bagian.')' : ''));
+                                : 'Jabatan tujuan';
                             $titikWarna = match (true) {
                                 $terlambatItem => 'bg-rose-500 ring-rose-100',
                                 $d->status->value === 'selesai' => 'bg-emerald-500 ring-emerald-100',

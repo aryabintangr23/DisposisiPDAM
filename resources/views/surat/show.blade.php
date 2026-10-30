@@ -205,31 +205,43 @@
         <div class="mb-6 rounded-xl border border-brand-200 bg-brand-50 p-5">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-brand-800">Keputusan Surat</h3>
             <p class="mt-1 text-sm text-brand-800/80">
-                Surat ini menunggu keputusan Anda. Pilih jabatan tujuan disposisi, lalu pilih <strong>Terima</strong> atau <strong>Tolak</strong> — status surat akan diperbarui menjadi final dan seluruh pihak yang terlibat dalam alur akan diberi tahu.
+                Surat ini menunggu keputusan Anda. Centang satu atau lebih jabatan tujuan disposisi, lalu pilih <strong>Terima</strong> atau <strong>Tolak</strong> — status surat akan diperbarui menjadi final dan seluruh pihak yang terlibat dalam alur akan diberi tahu.
             </p>
-            <form method="POST" action="{{ route('disposisi.keputusan', $surat) }}" class="mt-4 space-y-3" x-data="{ jabatan: '', jabatanLain: '' }">
+            <form method="POST" action="{{ route('disposisi.keputusan', $surat) }}" class="mt-4 space-y-3" x-data="{ pilihan: [], lainnyaNama: '' }" @submit="if (pilihan.length === 0) { $event.preventDefault(); alert('Pilih minimal satu jabatan tujuan disposisi.'); }">
                 @csrf
-                <div>
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Disposisi keputusan ke jabatan</label>
-                    <select name="tujuan_jabatan" required x-model="jabatan" class="w-full rounded-lg border border-brand-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
-                        <option value="" disabled selected>-- Pilih jabatan tujuan disposisi --</option>
+                <fieldset>
+                    <legend class="mb-1.5 block text-sm font-medium text-slate-700">Pilih jabatan tujuan disposisi (bisa lebih dari satu)</legend>
+                    <div class="grid gap-2 sm:grid-cols-2">
                         @foreach ($tujuanJabatan as $jab)
-                            <option value="{{ $jab }}">{{ $jab }}</option>
+                            <div class="rounded-lg border border-brand-200 bg-white p-3">
+                                <label class="flex items-start gap-2.5 text-sm text-slate-800">
+                                    <input type="checkbox" name="tujuan_jabatan[]" value="{{ $jab }}" x-model="pilihan" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                    <span>{{ $jab }}</span>
+                                </label>
+                                @if (in_array($jab, \App\Services\DisposisiRuleService::JABATAN_PERLU_BAGIAN, true))
+                                    <div x-show="pilihan.includes(@js($jab))" x-cloak class="mt-2 pl-7">
+                                        <label class="mb-1 block text-xs font-medium text-slate-600">Bagian untuk {{ $jab }}</label>
+                                        <input type="text" name="tujuan_bagian[{{ $jab }}]" :required="pilihan.includes(@js($jab))" placeholder="Contoh: Sub Bagian Keuangan" class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                                    </div>
+                                @endif
+                            </div>
                         @endforeach
-                        <option value="{{ $jabatanLainnya }}">Lainnya... </option>
-                    </select>
-                    <p class="mt-1 text-xs text-slate-500">Pilih dari daftar dropdown; untuk ganti jabatan tinggal klik kembali.</p>
-                </div>
-                <div x-show="jabatan === '{{ $jabatanLainnya }}'" x-cloak>
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Jabatan lainnya</label>
-                    <input type="text" name="tujuan_jabatan_lain" x-model="jabatanLain" :required="jabatan === '{{ $jabatanLainnya }}'" placeholder="Ketik nama jabatan tujuan" class="w-full rounded-lg border border-brand-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
-                    <p class="mt-1 text-xs text-slate-500">Ketik nama jabatan yang tidak ada di daftar.</p>
-                </div>
-                <div x-show="jabatan === 'Kepala Unit' || jabatan === 'Kasubag' || (jabatan === '{{ $jabatanLainnya }}' && ('kepala unit' === jabatanLain.trim().toLowerCase() || 'kasubag' === jabatanLain.trim().toLowerCase()))" x-cloak>
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Bagian</label>
-                    <input type="text" name="tujuan_bagian" :required="jabatan === 'Kepala Unit' || jabatan === 'Kasubag' || (jabatan === '{{ $jabatanLainnya }}' && ('kepala unit' === jabatanLain.trim().toLowerCase() || 'kasubag' === jabatanLain.trim().toLowerCase()))" placeholder="Contoh: Sub Bagian Keuangan" class="w-full rounded-lg border border-brand-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
-                    <p class="mt-1 text-xs text-slate-500">Wajib diisi untuk jabatan Kepala Unit / Kasubag — tulis nama bagiannya.</p>
-                </div>
+                        <div class="rounded-lg border border-brand-200 bg-white p-3">
+                            <label class="flex items-start gap-2.5 text-sm text-slate-800">
+                                <input type="checkbox" name="tujuan_jabatan[]" value="{{ $jabatanLainnya }}" x-model="pilihan" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                <span>Lainnya...</span>
+                            </label>
+                            <div x-show="pilihan.includes(@js($jabatanLainnya))" x-cloak class="mt-2 space-y-2 pl-7">
+                                <input type="text" name="tujuan_jabatan_lain" x-model="lainnyaNama" :required="pilihan.includes(@js($jabatanLainnya))" placeholder="Ketik nama jabatan tujuan" class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                                <div x-show="pilihan.includes(@js($jabatanLainnya)) && ['kepala unit', 'kasubag'].includes(lainnyaNama.trim().toLowerCase())">
+                                    <label class="mb-1 block text-xs font-medium text-slate-600">Bagian untuk jabatan ini</label>
+                                    <input type="text" name="tujuan_bagian[{{ $jabatanLainnya }}]" :required="pilihan.includes(@js($jabatanLainnya)) && ['kepala unit', 'kasubag'].includes(lainnyaNama.trim().toLowerCase())" placeholder="Contoh: Sub Bagian Keuangan" class="w-full rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="mt-2 text-xs text-slate-500">Centang semua jabatan yang perlu menerima disposisi ini. Jabatan Kepala Unit / Kasubag wajib diisi bagiannya.</p>
+                </fieldset>
                 <textarea name="catatan" rows="2" placeholder="Instruksi / catatan (opsional)" class="w-full rounded-lg border border-brand-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"></textarea>
                 <div class="flex flex-col gap-3 sm:flex-row">
                     <button type="submit" name="keputusan" value="diterima" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">

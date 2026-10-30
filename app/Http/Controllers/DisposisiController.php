@@ -173,6 +173,12 @@ class DisposisiController extends Controller
             ],
             'tujuan_jabatan' => [
                 'required',
+                'array',
+                'min:1',
+            ],
+            'tujuan_jabatan.*' => [
+                'required',
+                'string',
                 Rule::in([...DisposisiRuleService::TUJUAN_JABATAN, DisposisiRuleService::JABATAN_LAINNYA]),
             ],
             'tujuan_jabatan_lain' => [
@@ -181,6 +187,10 @@ class DisposisiController extends Controller
                 'max:255',
             ],
             'tujuan_bagian' => [
+                'nullable',
+                'array',
+            ],
+            'tujuan_bagian.*' => [
                 'nullable',
                 'string',
                 'max:255',
@@ -191,25 +201,54 @@ class DisposisiController extends Controller
             ],
         ]);
 
-        $jabatanTujuan = $data['tujuan_jabatan'];
+        // Bangun daftar tujuan dari checkbox yang dicentang. Setiap tujuan
+        // menyimpan bagiannya sendiri; jabatan Kepala Unit/Kasubag wajib bagian.
+        $tujuanTerpilih = [];
 
-        if ($jabatanTujuan === DisposisiRuleService::JABATAN_LAINNYA) {
-            abort_unless(
-                ! empty($data['tujuan_jabatan_lain']),
-                422,
-                'Nama jabatan wajib diisi saat memilih "Lainnya".'
-            );
+        foreach (array_unique($data['tujuan_jabatan']) as $jabatan) {
+            $kunciBagian = $jabatan;
 
-            $jabatanTujuan = $data['tujuan_jabatan_lain'];
+            if ($jabatan === DisposisiRuleService::JABATAN_LAINNYA) {
+                $jabatan = trim((string) ($data['tujuan_jabatan_lain'] ?? ''));
+
+                abort_unless(
+                    $jabatan !== '',
+                    422,
+                    'Nama jabatan wajib diisi saat memilih "Lainnya".'
+                );
+
+                $kunciBagian = DisposisiRuleService::JABATAN_LAINNYA;
+            }
+
+            $bagian = trim((string) ($data['tujuan_bagian'][$kunciBagian] ?? ''));
+            $bagian = $bagian === '' ? null : $bagian;
+
+            if (DisposisiRuleService::jabatanPerluBagian($jabatan)) {
+                abort_unless(
+                    $bagian !== null,
+                    422,
+                    "Bagian wajib diisi untuk jabatan tujuan \"{$jabatan}\"."
+                );
+            }
+
+            $tujuanTerpilih[] = [
+                'jabatan' => $jabatan,
+                'bagian' => $bagian,
+            ];
         }
 
-        if (DisposisiRuleService::jabatanPerluBagian($jabatanTujuan)) {
-            abort_unless(
-                ! empty($data['tujuan_bagian']),
-                422,
-                'Bagian wajib diisi untuk jabatan tujuan ini.'
-            );
-        }
+        $tujuanTerpilih = collect($tujuanTerpilih)
+            ->unique(fn (array $tujuan) => mb_strtolower($tujuan['jabatan'].'|'.($tujuan['bagian'] ?? '')))
+            ->values()
+            ->all();
+
+        abort_unless($tujuanTerpilih !== [], 422, 'Pilih minimal satu jabatan tujuan disposisi.');
+
+        $labelTujuan = collect($tujuanTerpilih)
+            ->map(fn (array $tujuan) => $tujuan['bagian']
+                ? "{$tujuan['jabatan']} ({$tujuan['bagian']})"
+                : $tujuan['jabatan'])
+            ->implode(', ');
 
         $dispoTerakhir = $surat->disposisiTerakhir();
 
@@ -238,11 +277,11 @@ class DisposisiController extends Controller
         // Keputusan Direktur (diterima/ditolak) menyelesaikan seluruh langkah alur sebelumnya.
         $rule->selesaikanSeluruhAlur($surat);
 
-        $disposisi = $surat->disposisi()->create([
+        $surat->disposisi()->create([
             'pengirim_id' => $user->id,
             'penerima_id' => null,
-            'tujuan_jabatan' => $jabatanTujuan,
-            'tujuan_bagian' => $data['tujuan_bagian'] ?? null,
+            'tujuan_jabatan' => json_encode($tujuanTerpilih, JSON_UNESCAPED_UNICODE),
+            'tujuan_bagian' => null,
             'tanggal_disposisi' => $tanggalDisposisi,
             'prioritas' => $prioritas,
             'batas_waktu' => $rule->hitungBatasWaktu(
@@ -258,7 +297,7 @@ class DisposisiController extends Controller
         ]);
 
         $label = $data['keputusan'] === 'diterima' ? 'Diterima' : 'Ditolak';
-        $tujuan = $disposisi->keTujuanLabel();
+        $tujuan = $labelTujuan;
 
         // Beri tahu seluruh pihak yang pernah terlibat dalam alur (Staff pembuat,
         // Kasubag, Kabag) tentang hasil keputusan Direktur dan arah disposisinya.

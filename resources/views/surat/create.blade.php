@@ -135,12 +135,11 @@
                 <textarea name="perihal" required rows="3" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">{{ old('perihal') }}</textarea>
             </div>
 
-            <div class="mt-5">
-                <label class="mb-1.5 block text-sm font-medium text-slate-700">Lampiran <span class="font-normal text-slate-400">(PDF, JPG, PNG, atau HEIC, maks. 10MB/berkas, boleh lebih dari satu)</span></label>
-                <div class="rounded-lg border-2 border-dashed border-slate-300 px-4 py-6 text-center transition hover:border-brand-400">
-                    <input type="file" name="lampiran[]" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,application/pdf,image/jpeg,image/png,image/heic" class="w-full text-sm text-slate-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand-700 hover:file:bg-brand-100">
-                </div>
-            </div>
+            @include('surat._lampiran-input', [
+                'accept' => '.pdf,.jpg,.jpeg,.png,.heic,application/pdf,image/jpeg,image/png,image/heic',
+                'label' => 'Lampiran (PDF, JPG, PNG, atau HEIC, maks. 10MB/berkas)',
+                'petunjuk' => 'Gunakan “Ambil Foto” untuk memotret langsung dari kamera HP; bisa dilakukan berkali-kali. Setiap berkas bisa dihapus atau difoto/dipilih ulang sebelum disimpan.',
+            ])
         </div>
 
         <!-- Section: Disposisi Pertama (hanya untuk surat masuk) -->

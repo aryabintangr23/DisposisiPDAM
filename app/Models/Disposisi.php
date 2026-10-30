@@ -108,8 +108,67 @@ class Disposisi extends Model
     }
 
     /**
-     * Label tujuan disposisi: nama akun penerima bila ada, atau jabatan tujuan
-     * (plus bagian bila diisi) untuk disposisi yang tidak memiliki akun penerima.
+     * Daftar jabatan tujuan disposisi keputusan Direktur. Disimpan sebagai JSON
+     * array berisi objek {jabatan, bagian} supaya satu keputusan bisa diarahkan
+     * ke lebih dari satu jabatan. Baris lama yang masih menyimpan satu jabatan
+     * sebagai teks biasa (dengan bagian di kolom terpisah) tetap didukung.
+     *
+     * @return array<int, array{jabatan: string, bagian: ?string}>
+     */
+    public function tujuanJabatanList(): array
+    {
+        $mentah = $this->tujuan_jabatan;
+
+        if (blank($mentah)) {
+            return [];
+        }
+
+        $terurai = json_decode($mentah, true);
+
+        if (is_array($terurai)) {
+            return collect($terurai)
+                ->map(function ($item) {
+                    if (is_string($item)) {
+                        return ['jabatan' => $item, 'bagian' => null];
+                    }
+
+                    if (! is_array($item) || blank($item['jabatan'] ?? null)) {
+                        return null;
+                    }
+
+                    return [
+                        'jabatan' => (string) $item['jabatan'],
+                        'bagian' => filled($item['bagian'] ?? null) ? (string) $item['bagian'] : null,
+                    ];
+                })
+                ->filter()
+                ->values()
+                ->all();
+        }
+
+        return [[
+            'jabatan' => (string) $mentah,
+            'bagian' => filled($this->tujuan_bagian) ? (string) $this->tujuan_bagian : null,
+        ]];
+    }
+
+    /**
+     * Gabungan label seluruh jabatan tujuan, mis. "Kabag Umum (Bagian X), Kasubag".
+     */
+    public function tujuanJabatanLabel(): string
+    {
+        $label = collect($this->tujuanJabatanList())
+            ->map(fn (array $tujuan) => $tujuan['bagian']
+                ? "{$tujuan['jabatan']} ({$tujuan['bagian']})"
+                : $tujuan['jabatan'])
+            ->all();
+
+        return $label === [] ? '-' : implode(', ', $label);
+    }
+
+    /**
+     * Label tujuan disposisi: nama akun penerima bila ada, atau seluruh jabatan
+     * tujuan (plus bagian bila diisi) untuk disposisi tanpa akun penerima.
      */
     public function keTujuanLabel(): string
     {
@@ -117,11 +176,7 @@ class Disposisi extends Model
             return $this->penerima?->nama ?? '-';
         }
 
-        $jabatan = $this->tujuan_jabatan ?? '-';
-
-        return $this->tujuan_bagian
-            ? "{$jabatan} ({$this->tujuan_bagian})"
-            : $jabatan;
+        return $this->tujuanJabatanLabel();
     }
 
     /**

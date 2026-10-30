@@ -87,33 +87,13 @@
                 <textarea name="perihal" required rows="3" class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30">{{ old('perihal', $surat->perihal) }}</textarea>
             </div>
 
-            @if ($surat->lampiran->isNotEmpty())
-                <div class="mt-5" x-data="{ hapus: [] }">
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Lampiran Saat Ini</label>
-                    <p class="mb-2 text-xs text-slate-400">Centang “Hapus” pada lampiran yang ingin diganti, lalu unggah lampiran baru di bawah.</p>
-                    <ul class="space-y-1.5">
-                        @foreach ($surat->lampiran as $file)
-                            <li class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600" :class="hapus.includes('{{ $file->id }}') ? 'opacity-50' : ''">
-                                <span class="flex min-w-0 items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                    <a href="{{ route('lampiran.tampil', $file) }}" target="_blank" class="truncate hover:text-brand-700 hover:underline" :class="hapus.includes('{{ $file->id }}') ? 'line-through' : ''">{{ $file->nama_file }}</a>
-                                </span>
-                                <label class="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-rose-600">
-                                    <input type="checkbox" name="hapus_lampiran[]" value="{{ $file->id }}" x-model="hapus" class="h-3.5 w-3.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500">
-                                    Hapus
-                                </label>
-                            </li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-
-            <div class="mt-5">
-                <label class="mb-1.5 block text-sm font-medium text-slate-700">Tambah Lampiran <span class="font-normal text-slate-400">(PDF, JPG, atau DOCX, opsional, boleh lebih dari satu)</span></label>
-                <div class="rounded-lg border-2 border-dashed border-slate-300 px-4 py-6 text-center transition hover:border-brand-400">
-                    <input type="file" name="lampiran[]" multiple accept=".pdf,.jpg,.jpeg,application/pdf,image/jpeg,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="w-full text-sm text-slate-500 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand-700 hover:file:bg-brand-100">
-                </div>
-            </div>
+            @include('surat._lampiran-input', [
+                'accept' => '.pdf,.jpg,.jpeg,.png,.heic,application/pdf,image/jpeg,image/png,image/heic,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'label' => 'Lampiran (PDF, JPG, PNG, HEIC, atau DOCX, maks. 10MB/berkas)',
+                'petunjuk' => 'Gunakan “Ambil Foto” untuk memotret langsung dari kamera HP; bisa dilakukan berkali-kali. Tombol edit pada lampiran lama akan menandai berkas lama untuk diganti setelah berkas baru dipilih.',
+                'existing' => $surat->lampiran,
+                'existingLabel' => 'Lampiran Saat Ini',
+            ])
         </div>
 
         <div class="flex items-center justify-end gap-3">

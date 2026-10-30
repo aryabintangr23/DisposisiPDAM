@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ArahSurat;
+use App\Enums\JenisSurat;
 use App\Enums\Prioritas;
 use App\Enums\StatusDisposisi;
-use App\Enums\JenisSurat;
 use App\Http\Requests\StoreSuratRequest;
 use App\Http\Requests\UpdateSuratRequest;
 use App\Models\LogAktivitas;
@@ -401,7 +401,7 @@ class SuratController extends Controller
 
         $tujuanJabatan = DisposisiRuleService::TUJUAN_JABATAN;
 
-        // Nilai sentinel opsi "Lainnya" pada dropdown jabatan tujuan keputusan.
+        // Nilai sentinel opsi "Lainnya" pada pilihan jabatan tujuan keputusan.
         $jabatanLainnya = DisposisiRuleService::JABATAN_LAINNYA;
 
         // Tujuan otomatis disposisi Staff (Kasubag Umum, atau reviewer pada alur revisi),

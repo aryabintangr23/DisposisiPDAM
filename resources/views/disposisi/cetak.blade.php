@@ -63,33 +63,25 @@
             <td width="50%" style="vertical-align: top;">
                 <strong>Disposisi Untuk:</strong>
                 @php
-                    // Disposisi hasil keputusan Direktur tidak punya akun penerima; tujuannya berupa
-                    // JABATAN yang dipilih Direktur dari dropdown (DisposisiRuleService::TUJUAN_JABATAN
-                    // atau "Lainnya" dengan teks bebas). Pada lembar cetak hanya
-                    // jabatan yang dipilih yang ditampilkan (pilihan lain tidak dicetak).
-                    $dariKeputusanDirektur = $disposisi->penerima_id === null && filled($disposisi->tujuan_jabatan);
+                    // Disposisi hasil keputusan Direktur tidak punya akun penerima; tujuannya
+                    // berupa satu atau lebih JABATAN yang dicentang Direktur
+                    // (DisposisiRuleService::TUJUAN_JABATAN atau "Lainnya" dengan teks
+                    // bebas). Seluruh jabatan yang dipilih dicetak sebagai tujuan disposisi.
+                    $tujuanJabatanList = $disposisi->tujuanJabatanList();
+                    $dariKeputusanDirektur = $disposisi->penerima_id === null && $tujuanJabatanList !== [];
                     $roleTujuan = $disposisi->penerima?->role?->nama_role ?? '';
-
-                    if ($dariKeputusanDirektur) {
-                        $jabatanDipilih = trim((string) $disposisi->tujuan_jabatan);
-                        $daftarJabatan = \App\Services\DisposisiRuleService::TUJUAN_JABATAN;
-
-                        // Cocokkan tanpa peduli huruf besar/kecil. Kalau tidak ada di daftar
-                        // berarti Direktur memilih "Lainnya" dan mengetik jabatannya sendiri.
-                        $jabatanCocok = collect($daftarJabatan)
-                            ->first(fn ($j) => mb_strtolower($j) === mb_strtolower($jabatanDipilih));
-                        $pilihLainnya = $jabatanCocok === null;
-                    }
                 @endphp
                 <ul class="pilihan">
                     @if ($dariKeputusanDirektur)
-                        {{-- Hanya jabatan yang dipilih Direktur yang ditampilkan --}}
-                        <li>
-                            <span class="kotak centang"></span>{{ $pilihLainnya ? $jabatanDipilih : $jabatanCocok }}
-                            @if (! $pilihLainnya && \App\Services\DisposisiRuleService::jabatanPerluBagian($jabatanCocok))
-                                &nbsp;&ndash; Bagian: {{ $disposisi->tujuan_bagian ?: '..............' }}
-                            @endif
-                        </li>
+                        {{-- Semua jabatan yang dipilih Direktur ditampilkan --}}
+                        @foreach ($tujuanJabatanList as $tujuan)
+                            <li>
+                                <span class="kotak centang"></span>{{ $tujuan['jabatan'] }}
+                                @if ($tujuan['bagian'])
+                                    &nbsp;&ndash; Bagian: {{ $tujuan['bagian'] }}
+                                @endif
+                            </li>
+                        @endforeach
                     @else
                         {{-- Hanya role penerima disposisi yang ditampilkan --}}
                         @php
